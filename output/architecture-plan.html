@@ -1,0 +1,555 @@
+<title>Title Scrutiny Pipeline</title>
+<style>
+:root{
+  --bg:#F7F2E7;
+  --bg-raised:#FFFDF7;
+  --ink:#2A231C;
+  --ink-soft:#6B6153;
+  --rule:#D8CBAE;
+  --rule-strong:#B8A87F;
+  --seal:#8C2F2A;
+  --seal-soft:#F1DAD2;
+  --registrar:#2E4A6B;
+  --registrar-soft:#DCE6ED;
+  --gold:#8A6512;
+  --gold-soft:#F0E4C4;
+  --store:#3F6E63;
+  --store-soft:#DCEAE5;
+  --mono-bg:#EFE7D3;
+  --shadow: 0 1px 2px rgba(42,35,28,0.06), 0 6px 20px rgba(42,35,28,0.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1D1811;
+    --bg-raised:#26201740;--bg-raised:#26201966;
+    --bg-raised:#262019;
+    --ink:#ECE3CE;
+    --ink-soft:#B4A88C;
+    --rule:#4A4030;
+    --rule-strong:#5C4F35;
+    --seal:#D97D74;
+    --seal-soft:#3A2320;
+    --registrar:#8FB2D6;
+    --registrar-soft:#1F2C3A;
+    --gold:#D8B95B;
+    --gold-soft:#332C16;
+    --store:#8FC3B4;
+    --store-soft:#1B2E28;
+    --mono-bg:#2C2519;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1D1811;
+  --bg-raised:#262019;
+  --ink:#ECE3CE;
+  --ink-soft:#B4A88C;
+  --rule:#4A4030;
+  --rule-strong:#5C4F35;
+  --seal:#D97D74;
+  --seal-soft:#3A2320;
+  --registrar:#8FB2D6;
+  --registrar-soft:#1F2C3A;
+  --gold:#D8B95B;
+  --gold-soft:#332C16;
+  --store:#8FC3B4;
+  --store-soft:#1B2E28;
+  --mono-bg:#2C2519;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Source Serif 4', Georgia, 'Times New Roman', serif;
+  line-height:1.6;
+}
+.page{
+  max-width:920px;
+  margin:0 auto;
+  padding:64px 28px 100px;
+}
+
+.masthead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:24px;
+  border-bottom:3px double var(--rule-strong);
+  padding-bottom:18px;
+  margin-bottom:8px;
+}
+.masthead .kicker{
+  font-family:'IBM Plex Mono', ui-monospace, monospace;
+  font-size:11.5px;
+  letter-spacing:0.11em;
+  text-transform:uppercase;
+  color:var(--seal);
+  margin:0 0 10px;
+}
+.masthead h1{
+  font-family:'Fraunces', 'Source Serif 4', Georgia, serif;
+  font-weight:600;
+  font-size:clamp(30px,4.4vw,44px);
+  letter-spacing:-0.01em;
+  margin:0;
+  text-wrap:balance;
+}
+.masthead .ref{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12px;
+  color:var(--ink-soft);
+  text-align:right;
+  white-space:nowrap;
+  padding-bottom:4px;
+}
+.dek{
+  font-size:17px;
+  color:var(--ink-soft);
+  max-width:62ch;
+  margin:18px 0 40px;
+}
+.dek strong{color:var(--ink);font-weight:600;}
+
+.samples{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:8px;
+  margin:0 0 48px;
+}
+.sample-chip{
+  background:var(--bg-raised);
+  border:1px solid var(--rule);
+  border-radius:3px;
+  padding:9px 12px;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11.5px;
+  color:var(--ink-soft);
+  box-shadow:var(--shadow);
+}
+.sample-chip b{color:var(--ink);font-weight:600;display:block;font-family:'Source Serif 4',serif;font-size:13px;margin-bottom:2px;}
+
+section{margin-bottom:52px;}
+.sec-head{
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+  border-bottom:1.5px solid var(--rule-strong);
+  padding-bottom:8px;
+  margin-bottom:16px;
+}
+.sec-num{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:13px;
+  color:var(--seal);
+  font-weight:600;
+}
+.sec-head h2{
+  font-family:'Fraunces','Source Serif 4',serif;
+  font-weight:600;
+  font-size:21px;
+  margin:0;
+  letter-spacing:0.01em;
+}
+p{margin:0 0 14px;max-width:70ch;}
+ul,ol{margin:0 0 14px;padding-left:22px;max-width:68ch;}
+li{margin-bottom:6px;}
+.note{
+  background:var(--gold-soft);
+  border:1px solid var(--rule);
+  border-left:3px solid var(--gold);
+  padding:14px 18px;
+  border-radius:2px;
+  font-size:14.5px;
+  color:var(--ink);
+  margin:18px 0;
+}
+.note b{color:var(--gold);text-transform:uppercase;font-size:11px;letter-spacing:0.08em;font-family:'IBM Plex Mono',monospace;display:block;margin-bottom:6px;}
+
+.diagram-wrap{
+  background:var(--bg-raised);
+  border:1px solid var(--rule);
+  border-radius:6px;
+  padding:20px 16px 12px;
+  box-shadow:var(--shadow);
+  overflow-x:auto;
+  margin-bottom:10px;
+}
+.diagram-wrap svg{display:block;min-width:1180px;width:100%;height:auto;color:var(--ink);}
+figcaption{
+  font-size:13px;
+  color:var(--ink-soft);
+  font-style:italic;
+  text-align:center;
+  margin-top:8px;
+}
+
+table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14.5px;}
+th{
+  text-align:left;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  border-bottom:1.5px solid var(--rule-strong);
+  padding:6px 12px 8px 0;
+  font-weight:500;
+}
+td{
+  padding:9px 12px 9px 0;
+  border-bottom:1px solid var(--rule);
+  vertical-align:top;
+}
+tr:last-child td{border-bottom:1.5px solid var(--rule-strong);}
+.tag{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  padding:2px 7px;
+  border-radius:10px;
+  white-space:nowrap;
+}
+.tag.core{background:var(--store-soft);color:var(--store);}
+.tag.config{background:var(--gold-soft);color:var(--gold);}
+.tag.human{background:var(--seal-soft);color:var(--seal);}
+
+.phase-list{list-style:none;padding:0;margin:0;counter-reset:phase;}
+.phase-list li{
+  counter-increment:phase;
+  position:relative;
+  padding:4px 0 18px 40px;
+  border-left:1.5px solid var(--rule);
+  margin-left:9px;
+}
+.phase-list li:last-child{border-left-color:transparent;padding-bottom:0;}
+.phase-list li::before{
+  content:counter(phase);
+  position:absolute;
+  left:-10px;
+  top:0;
+  width:19px;height:19px;
+  background:var(--bg-raised);
+  border:1.5px solid var(--registrar);
+  color:var(--registrar);
+  border-radius:50%;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:600;
+}
+.phase-list b{font-family:'Fraunces','Source Serif 4',serif;font-size:15.5px;font-weight:600;display:block;margin-bottom:3px;}
+.phase-list span{color:var(--ink-soft);font-size:14px;}
+
+.foot{
+  margin-top:56px;
+  padding-top:18px;
+  border-top:1px solid var(--rule);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  display:flex;
+  justify-content:space-between;
+}
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <p class="kicker">Architecture Proposal — Draft for Review</p>
+      <h1>Title Scrutiny Pipeline</h1>
+    </div>
+    <div class="ref">REF/ARCH&#8209;001/2026<br>04 SEP 2026</div>
+  </div>
+
+  <p class="dek">A generic pipeline that takes <strong>any bundle of property documents</strong> — sale deeds, gift deeds, settlements, powers of attorney, mortgage deeds, agreements to sell, in English, Tamil, or mixed — and produces a filled <strong>Legal Scrutiny Report</strong>. Nothing about a document type, a language, or a field is hardcoded; every point of variation is pushed into a registry the system reads at run time. Built on the <strong>Gemini API</strong>, whose native multimodal PDF ingestion reads the scan, the Tamil script, and the stamp in one pass — no separate OCR engine.</p>
+
+  <div class="samples">
+    <div class="sample-chip"><b>Settlement Deed</b>Tamil + English · scanned</div>
+    <div class="sample-chip"><b>General Power of Attorney</b>English · scanned</div>
+    <div class="sample-chip"><b>Gift Deed</b>English · scanned</div>
+    <div class="sample-chip"><b>Sale Deed</b>Tamil registry receipt + English deed</div>
+    <div class="sample-chip"><b>Agreement to Sell</b>English · scanned</div>
+    <div class="sample-chip"><b>Memorandum of Deposit of Title Deeds</b>English · incl. 18&#8209;doc schedule</div>
+    <div class="sample-chip"><b>Registration attachment</b>mixed format</div>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">00</span><h2>The hard part, stated plainly</h2></div>
+    <p>The seven reference files are scans of non-judicial stamp paper: watermarked currency-style borders, registrar ink stamps, handwritten annotations, and a mix of Tamil headers with English deed text — sometimes on the same page. No two deeds share a layout, and a single matter (the MODT sample shows this directly) can rest on a chain of eighteen prior documents spanning 1970 to 2025.</p>
+    <p>That means classification, field extraction, and template-mapping all have to be <b>schema-driven and reconfigurable</b>, and the report has to be assembled from <b>facts reconciled across documents</b>, not transcribed from any single one. The diagram below is built around that constraint.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Pipeline — mega flow</h2></div>
+
+    <div class="diagram-wrap">
+      <figure style="margin:0;">
+        <svg viewBox="0 0 1500 990" role="img" aria-label="Five-stage pipeline: intake, per-document understanding, a matter knowledge store, cross-document reconciliation, human review, then template mapping and report generation, with a schema registry and a template registry feeding the pipeline as configuration rather than hardcoded logic.">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+            <marker id="arrowSeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--seal)"/>
+            </marker>
+          </defs>
+
+          <!-- band labels -->
+          <g font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="1">
+            <text x="20" y="45" fill="var(--seal)" font-weight="600">01 INTAKE</text>
+            <text x="20" y="185" fill="var(--seal)" font-weight="600">02 PER-DOCUMENT UNDERSTANDING — GEMINI API</text>
+            <text x="20" y="425" fill="var(--seal)" font-weight="600">03 MATTER-LEVEL RECONCILIATION — GEMINI API</text>
+            <text x="20" y="565" fill="var(--seal)" font-weight="600">04 HUMAN REVIEW</text>
+            <text x="20" y="705" fill="var(--seal)" font-weight="600">05 TEMPLATE MAPPING &amp; GENERATION</text>
+          </g>
+
+          <!-- ========== BAND 1 : INTAKE ========== -->
+          <g transform="translate(60,50)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Upload</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">multi-doc, grouped</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">by matter / property</text>
+          </g>
+          <line x1="250" y1="95" x2="298" y2="95" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(300,50)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Pre-process</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">split pages · deskew ·</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">detect script/language</text>
+          </g>
+
+          <!-- connector band1 -> band2, one arrow per page fan-out -->
+          <line x1="395" y1="140" x2="395" y2="188" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <text x="405" y="168" font-size="10.5" fill="var(--ink-soft)" font-style="italic">per page</text>
+
+          <!-- ========== BAND 2 : PER-DOCUMENT UNDERSTANDING ========== -->
+          <g transform="translate(60,190)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Gemini ingest</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">native PDF read — Tamil +</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">English, stamps, handwriting</text>
+          </g>
+          <line x1="250" y1="235" x2="298" y2="235" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(300,190)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Classify</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">Gemini, constrained to</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">registry's type enum</text>
+          </g>
+          <line x1="490" y1="235" x2="538" y2="235" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(540,190)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Extract fields</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">Gemini responseSchema =</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">type's schema, cited to source</text>
+          </g>
+          <line x1="730" y1="235" x2="778" y2="235" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(780,190)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="34" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Validate</text>
+            <text x="16" y="56" font-size="11.5" fill="var(--ink-soft)">deterministic checks +</text>
+            <text x="16" y="71" font-size="11.5" fill="var(--ink-soft)">self-consistency confidence</text>
+          </g>
+
+          <!-- Schema registry -->
+          <g transform="translate(1040,190)">
+            <rect width="220" height="90" rx="6" fill="var(--gold-soft)" stroke="var(--gold)" stroke-opacity="0.6" stroke-dasharray="3 3"/>
+            <text x="16" y="30" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="0.7" fill="var(--gold)">CONFIG · REGISTRY</text>
+            <text x="16" y="52" font-family="Fraunces,serif" font-weight="600" font-size="14">Schema Registry</text>
+            <text x="16" y="72" font-size="11" fill="var(--ink-soft)">doc types + Gemini</text>
+            <text x="16" y="86" font-size="11" fill="var(--ink-soft)">responseSchemas, editable</text>
+          </g>
+          <line x1="1038" y1="230" x2="492" y2="230" stroke="var(--gold)" stroke-opacity="0.55" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+          <line x1="1038" y1="248" x2="732" y2="248" stroke="var(--gold)" stroke-opacity="0.55" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+
+          <!-- unmatched type loop -->
+          <path d="M 350 280 C 350 320 300 330 260 328" fill="none" stroke="var(--seal)" stroke-opacity="0.55" stroke-dasharray="2 3" marker-end="url(#arrowSeal)"/>
+          <text x="150" y="345" font-size="10.5" fill="var(--seal)" font-style="italic">no schema match → tag as new type, route to review</text>
+
+          <!-- connector to knowledge store -->
+          <line x1="875" y1="280" x2="875" y2="333" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+
+          <!-- ========== KNOWLEDGE STORE SPINE ========== -->
+          <g transform="translate(60,335)">
+            <rect width="1200" height="70" rx="6" fill="var(--store-soft)" stroke="var(--store)" stroke-opacity="0.6"/>
+            <text x="24" y="28" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="0.7" fill="var(--store)">SOURCE OF TRUTH</text>
+            <text x="24" y="50" font-family="Fraunces,serif" font-weight="600" font-size="15.5" fill="var(--ink)">Matter Knowledge Store</text>
+            <text x="330" y="50" font-size="12" fill="var(--ink-soft)">documents · parties · property schedule · chain-of-title · encumbrances — versioned, every field provenance-linked to a source page</text>
+          </g>
+
+          <!-- store <-> band3 -->
+          <line x1="150" y1="405" x2="150" y2="438" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <text x="160" y="425" font-size="10.5" fill="var(--ink-soft)" font-style="italic">reads matter docs</text>
+
+          <!-- ========== BAND 3 : RECONCILIATION ========== -->
+          <g transform="translate(60,440)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14">Resolve identities</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">same person across docs,</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">by name + PAN/Aadhaar</text>
+          </g>
+          <line x1="250" y1="485" x2="298" y2="485" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(300,440)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14">Build title chain</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">order root → present,</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">flag gaps / breaks</text>
+          </g>
+          <line x1="490" y1="485" x2="538" y2="485" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(540,440)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14">Reconcile survey &amp; extent</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">old ↔ new survey no.,</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">extent through each transfer</text>
+          </g>
+          <line x1="730" y1="485" x2="778" y2="485" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(780,440)">
+            <rect width="190" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14">Aggregate encumbrances</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">mortgages (e.g. MODT),</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">conditions, restrictions</text>
+          </g>
+
+          <!-- band3 write back -->
+          <line x1="875" y1="530" x2="875" y2="405" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <text x="885" y="475" font-size="10.5" fill="var(--ink-soft)" font-style="italic">writes reconciled facts</text>
+
+          <!-- store -> band4 -->
+          <line x1="500" y1="405" x2="500" y2="578" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <text x="510" y="470" font-size="10.5" fill="var(--ink-soft)" font-style="italic">review queue — low-confidence</text>
+          <text x="510" y="484" font-size="10.5" fill="var(--ink-soft)" font-style="italic">and unmatched items first</text>
+
+          <!-- ========== BAND 4 : HUMAN REVIEW ========== -->
+          <g transform="translate(280,580)">
+            <rect width="540" height="90" rx="6" fill="var(--seal-soft)" stroke="var(--seal)" stroke-opacity="0.55"/>
+            <text x="20" y="32" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="0.7" fill="var(--seal)">HUMAN IN THE LOOP</text>
+            <text x="20" y="55" font-family="Fraunces,serif" font-weight="600" font-size="15.5">Reviewer workbench</text>
+            <text x="240" y="55" font-size="12" fill="var(--ink-soft)">scan ⇄ extracted field, side by side;</text>
+            <text x="240" y="72" font-size="12" fill="var(--ink-soft)">approve, correct, or re-tag a document type</text>
+          </g>
+          <path d="M 300 580 C 240 540 210 470 220 410" fill="none" stroke="var(--seal)" stroke-opacity="0.6" marker-end="url(#arrowSeal)"/>
+          <text x="90" y="500" font-size="10.5" fill="var(--seal)" font-style="italic">corrections write back</text>
+
+          <!-- band4 -> band5 -->
+          <line x1="550" y1="670" x2="550" y2="718" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <text x="560" y="700" font-size="10.5" fill="var(--ink-soft)" font-style="italic">approved matter</text>
+
+          <!-- ========== BAND 5 : GENERATION ========== -->
+          <g transform="translate(60,720)">
+            <rect width="240" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Map to template</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">placeholder ⇄ data-path</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">bindings, resolved from the store</text>
+          </g>
+          <line x1="300" y1="765" x2="338" y2="765" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(340,720)">
+            <rect width="240" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Generate .docx</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">cover + per-section findings</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">+ conclusion table</text>
+          </g>
+          <line x1="580" y1="765" x2="618" y2="765" stroke="currentColor" stroke-opacity="0.5" marker-end="url(#arrow)"/>
+          <g transform="translate(620,720)">
+            <rect width="240" height="90" rx="6" fill="var(--bg)" stroke="currentColor" stroke-opacity="0.35"/>
+            <text x="16" y="30" font-family="Fraunces,serif" font-weight="600" font-size="14.5">Deliver</text>
+            <text x="16" y="52" font-size="11.5" fill="var(--ink-soft)">download to advocate,</text>
+            <text x="16" y="67" font-size="11.5" fill="var(--ink-soft)">versioned alongside the matter</text>
+          </g>
+
+          <!-- template registry -->
+          <g transform="translate(1040,720)">
+            <rect width="220" height="90" rx="6" fill="var(--gold-soft)" stroke="var(--gold)" stroke-opacity="0.6" stroke-dasharray="3 3"/>
+            <text x="16" y="30" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="0.7" fill="var(--gold)">CONFIG · REGISTRY</text>
+            <text x="16" y="52" font-family="Fraunces,serif" font-weight="600" font-size="14">Template Registry</text>
+            <text x="16" y="72" font-size="11" fill="var(--ink-soft)">the Scrutiny Report as a</text>
+            <text x="16" y="86" font-size="11" fill="var(--ink-soft)">token map, not a hardcoded doc</text>
+          </g>
+          <line x1="1038" y1="760" x2="182" y2="760" stroke="var(--gold)" stroke-opacity="0.55" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+
+        </svg>
+      </figure>
+      <figcaption>Five stages left to right, top to bottom: intake, per-document Gemini understanding (classify/extract), a shared Matter Knowledge Store, Gemini-assisted cross-document reconciliation, a human review loop, then template mapping into the generated report. Dashed gold lines are configuration reads — nothing they feed is hardcoded.</figcaption>
+    </div>
+
+    <div class="note"><b>Why the registries matter</b>A document type the pipeline has never seen doesn't fail — it fails to match a schema, gets tagged <em>unclassified</em>, and drops straight into the review queue. A reviewer classifies it once, adds or edits its extraction schema in the registry — the same JSON schema handed to Gemini as <code>responseSchema</code> — and every future document of that type is handled automatically. The same is true of the report itself: the Legal Scrutiny Report template is a token map (<code>{{VENDOR_NAME}}</code> → knowledge-store path), so changing the report's wording or adding a section never touches pipeline code.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>What each stage actually does</h2></div>
+    <table>
+      <tr><th>Stage</th><th>Responsibility</th><th>Kind</th></tr>
+      <tr><td>Pre-process</td><td>Split multi-page PDFs, deskew/denoise scans, detect script per page (Tamil, English, Devanagari stamp text, mixed) so OCR is routed correctly.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Gemini ingest</td><td>The PDF (or image) goes to Gemini directly via the Files API — one multimodal pass reads printed and handwritten text, Tamil and English, registrar stamps and seals. No separate OCR engine to run or maintain.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Classify</td><td>A Gemini call constrained by <code>responseSchema</code> to the Schema Registry's type enum (Sale Deed, Gift Deed, Settlement, GPA, MODT, Agreement to Sell, EC, Patta, Death Certificate, …). No match → <em>unclassified</em>, not a crash.</td><td><span class="tag config">config-driven</span></td></tr>
+      <tr><td>Extract fields</td><td>A second Gemini call, <code>responseSchema</code> set to the field schema registered for that type (parties, property schedule, survey numbers, extent, consideration, registration particulars, conditions); the schema requires a page/quote citation alongside every value.</td><td><span class="tag config">config-driven</span></td></tr>
+      <tr><td>Validate</td><td>Deterministic, non-LLM checks (dates parse, extents convert, PAN/Aadhaar formats match) plus a confidence signal from re-running extraction and comparing outputs (self-consistency), since the API doesn't expose per-token confidence.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Resolve identities</td><td>Exact PAN/Aadhaar match first (deterministic); Gemini used only for the remaining fuzzy cases — e.g. "Kishan D Vasant" vs. a differently-spelled mention elsewhere.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Build title chain</td><td>The whole matter's extracted JSON (with citations) goes to Gemini in one long-context call to order documents root → present — exactly the 18-row schedule the MODT sample already lists by hand — and flag missing links; date/reference cross-checks are re-verified deterministically.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Reconcile survey &amp; extent</td><td>Old↔new survey number correlation is Gemini-assisted pattern matching across documents; unit conversion (acres/cents/sq. ft.) is deterministic arithmetic, not left to the model.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Aggregate encumbrances</td><td>Pulls mortgages (MODT), GPAs still in force, and any restrictive conditions across the whole document set.</td><td><span class="tag core">core</span></td></tr>
+      <tr><td>Reviewer workbench</td><td>An advocate sees the source scan beside each extracted/reconciled fact, corrects or approves it. Nothing reaches the final report unreviewed.</td><td><span class="tag human">human-in-the-loop</span></td></tr>
+      <tr><td>Map to template</td><td>Binds the approved Knowledge Store data to the report's placeholders using the Template Registry's token map.</td><td><span class="tag config">config-driven</span></td></tr>
+      <tr><td>Generate .docx</td><td>Fills the Legal Scrutiny Report template already built — cover fields, per-section findings, the seven-row conclusion table.</td><td><span class="tag core">core</span></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>How "no predefined data" is actually enforced</h2></div>
+    <ul>
+      <li><b>Document types are rows in the Schema Registry</b>, not branches in code — adding "Release Deed" or "Court Decree" is a data entry, never a deploy.</li>
+      <li><b>Field extraction is schema-driven</b> — the extractor is handed a JSON schema for the matched type and returns structured output against it; it holds no per-document-type logic of its own.</li>
+      <li><b>The report template is a token map</b>, generated the same way the current <code>.docx</code> was — sections, findings boxes, and the conclusion table are all bound by placeholder name, so the report's wording can change without touching the pipeline.</li>
+      <li><b>Unrecognized input degrades to a review task</b>, never a failure — an odd document (like the Tamil-only registry receipt bundled in the Sale Deed PDF) gets queued for a human tag instead of silently mis-filed.</li>
+      <li><b>Gemini's <code>responseSchema</code> IS the registry entry</b> — the field list an advocate edits in the Schema Registry is, byte for byte, the JSON schema sent on the API call. There's no second translation layer to keep in sync.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>Tech stack — built on the Gemini API</h2></div>
+    <p>Every model-touching stage runs on Gemini; nothing here needs a separate OCR service, translation layer, or classifier model.</p>
+    <table>
+      <tr><th>Stage</th><th>Gemini mechanism</th></tr>
+      <tr><td>Document ingest</td><td><b>Files API</b> upload, then native multimodal reading of the PDF/image — Gemini reads scanned Tamil and English text, stamps, and handwriting in the same pass, so the pre-process stage only has to split and orient pages, not OCR them.</td></tr>
+      <tr><td>Classify &amp; extract</td><td><b>Structured output</b> (<code>responseMimeType: application/json</code> + <code>responseSchema</code>) — the schema is the Schema Registry entry itself: an enum of types for classification, the type's field schema for extraction. Output is guaranteed valid JSON, no parsing layer.</td></tr>
+      <tr><td>Provenance</td><td>The field schema requires a <code>source_page</code> and <code>quote</code> alongside every extracted value, so each fact in the report can be traced back to the scan it came from — non-negotiable for a legal deliverable.</td></tr>
+      <tr><td>Confidence, without token probabilities</td><td>The API doesn't expose per-field confidence, so low-stakes ambiguity is resolved by <b>self-consistency</b>: re-run extraction (temperature &gt; 0) and flag fields where repeated runs disagree, rather than trusting a single pass.</td></tr>
+      <tr><td>Reconciliation</td><td>Gemini's <b>long context window</b> takes the whole matter's extracted JSON in one call to propose the title chain and identity matches; every date, document number, and computed extent it touches is re-verified by deterministic code before it's trusted.</td></tr>
+      <tr><td>Model tier</td><td>Flash-tier for the high-volume per-page ingest/classify/extract calls; Pro-tier for the few, higher-stakes whole-matter reconciliation calls where reasoning quality matters more than latency.</td></tr>
+    </table>
+    <div class="note"><b>Where Gemini is deliberately kept out</b>Unit conversion, exact PAN/Aadhaar matching, date arithmetic, and the final docx generation are plain code. Gemini reads and reasons over unstructured scans; it never does arithmetic the pipeline can do exactly.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Open questions before we build</h2></div>
+    <ul>
+      <li><b>AI Studio vs. Vertex AI</b> — a raw Gemini API key (AI Studio) is fastest to start; Vertex AI adds enterprise auth, VPC controls, and data-residency options that may matter once real client PII (PAN, Aadhaar) is flowing through this.</li>
+      <li><b>Page limits on large deeds</b> — the 50-page Sale Deed sample may need chunking or a per-document page cap; worth confirming Gemini's practical multi-page-PDF ceiling against these actual files.</li>
+      <li><b>Matter boundary</b> — is grouping "all documents for one property" left to the uploader, or should the system suggest groupings from extracted survey numbers/addresses?</li>
+      <li><b>Review UI ownership</b> — is the reviewer workbench a new interface, or does it sit inside a tool your team already uses daily?</li>
+      <li><b>Retention</b> — source scans and extracted PII need a storage and access policy, and a decision on whether any of it is retained by the API provider, before real client matters go through this.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">06</span><h2>Suggested build order</h2></div>
+    <ol class="phase-list">
+      <li><b>Prove extraction accuracy</b><span>Run Gemini ingest + classify + extract (via the API key) on the seven reference documents only, no UI, no reconciliation — confirm it reads scanned, stamped, Tamil/English deeds accurately before anything else is built.</span></li>
+      <li><b>Stand up the Knowledge Store &amp; registries</b><span>Schema Registry seeded with the ~7 types already seen; Matter Knowledge Store schema for documents/parties/property/chain/encumbrances.</span></li>
+      <li><b>Reconciliation over the sample matter</b><span>Rebuild the MODT's 18-document chain programmatically as the acceptance test for title-chain building and survey/extent reconciliation.</span></li>
+      <li><b>Reviewer workbench (minimum viable)</b><span>Side-by-side scan and field editor, gated so nothing reaches generation unapproved.</span></li>
+      <li><b>Template mapping &amp; generation</b><span>Bind the Knowledge Store to the existing Legal Scrutiny Report template; generate end-to-end for the sample matter.</span></li>
+      <li><b>Harden intake</b><span>Multi-file upload, matter grouping, and the unclassified-document path, once the core pipeline is proven accurate.</span></li>
+    </ol>
+  </section>
+
+  <div class="foot">
+    <span>Title Scrutiny Pipeline — architecture draft</span>
+    <span>For review — not yet implemented</span>
+  </div>
+
+</div>

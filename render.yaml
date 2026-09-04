@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: title-scrutiny-pipeline
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: 20.18.0
+    # Free-tier disk is ephemeral (wiped on every restart/redeploy) — that's
+    # deliberate here: output/current/ is meant to hold only the most recent
+    # upload and its generated report, never a history. No persistent disk
+    # is attached.

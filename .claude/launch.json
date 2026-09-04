@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "matter-review",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "output"],
+      "port": 4173
+    },
+    {
+      "name": "upload-ui",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 4174
+    }
+  ]
+}

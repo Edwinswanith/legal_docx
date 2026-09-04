@@ -1,0 +1,64 @@
+# Deploying the upload UI
+
+## Why not Vercel
+
+Vercel's serverless functions cap request bodies at 4.5 MB and execution at
+10–60 seconds on the free/hobby tier. Real scanned deeds in this project run
+5–20 MB each, and a single extraction call to Gemini can take 30–90 seconds —
+both blow past those limits before the pipeline even starts. Vercel is built
+for short, small serverless functions; this app is a small persistent
+server with a long-running background job, which is a different shape of
+app entirely.
+
+## Recommended: Render (free tier)
+
+A normal persistent Node container behind Render's reverse proxy, not a
+serverless function — no small body-size cap, no short execution timeout.
+The free tier's disk is ephemeral (wiped on every restart/redeploy), which
+is actually the right fit here: this app is deliberately single-slot —
+`output/current/` holds only the most recent upload and its generated
+report, overwritten on every run, never a history (see `server.js`).
+
+### One-time setup
+
+1. **Push this repo to GitHub** (see "Git setup" below if you haven't yet).
+2. Go to [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint**, and point it at your GitHub repo. Render will read `render.yaml` at the repo root and configure the service automatically (Node runtime, `npm install` build, `npm start` run).
+   - If you'd rather configure by hand instead of the blueprint: **New → Web Service**, connect the repo, set **Build Command** to `npm install` and **Start Command** to `npm start`.
+3. In the service's **Environment** tab, add:
+   - `GEMINI_API_KEY` — your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey). `render.yaml` deliberately leaves this unset (`sync: false`) so it's never committed to git.
+4. Deploy. Render assigns a URL like `https://title-scrutiny-pipeline.onrender.com` — that's the same upload page you've been testing at `localhost:4174`, nothing about the app changes between the two.
+
+### Things to know
+
+- **Free tier sleeps after ~15 minutes idle** and takes a few seconds to wake on the next request — the frontend's polling loop handles this fine (it just waits a bit longer for the first status response), but the very first click after a cold start may feel slow.
+- **Nothing persists across a redeploy or restart** — by design. If you want the last run's report to survive a redeploy, that's a deliberate feature to add later (e.g. writing to an object store), not something the current single-slot design does.
+- **Multiple people hitting it at once will collide** — `/api/run` returns `409` if a run is already in progress, and a new upload wipes whatever the previous one produced. Fine for one person testing; not fine for concurrent real users. That's the next thing to fix if this stops being just a test tool.
+
+## Alternatives
+
+- **Fly.io** — free small-VM allowance, a real persistent container (can even attach a real volume later if you want the ephemeral behavior to go away). More setup: needs the `flyctl` CLI and a `fly.toml`/`Dockerfile`. Worth it if you outgrow Render's free tier.
+- **Railway** — easiest GitHub-connect deploy of the three, but no longer has an indefinite free tier (a one-time trial credit, then usage-based billing).
+
+## Git setup
+
+If this project isn't a git repo yet:
+
+```bash
+git init
+git add .
+git commit -m "Title scrutiny pipeline: extraction, reconciliation, report generation, upload UI"
+```
+
+Then create an empty repo on GitHub and:
+
+```bash
+git remote add origin <your-repo-url>
+git branch -M main
+git push -u origin main
+```
+
+`.gitignore` already excludes `node_modules/`, `.env`, and every generated
+output path (`output/extractions/`, `output/MATTER-*.json`,
+`output/Legal-Scrutiny-Report-MATTER-*.docx`, `output/matter-review.html`,
+`output/current/`) — only source code and the reference template
+(`output/Legal-Scrutiny-Report-Template.docx`) get committed.

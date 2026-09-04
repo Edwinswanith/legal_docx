@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Title Scrutiny — Intake</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F7F2E7; --bg-raised:#FFFDF7; --ink:#2A231C; --ink-soft:#6B6153;
+  --rule:#D8CBAE; --rule-strong:#B8A87F;
+  --seal:#8C2F2A; --seal-soft:#F1DAD2;
+  --gold:#8A6512; --gold-soft:#F0E4C4;
+  --store:#3F6E63; --store-soft:#DCEAE5;
+  --registrar:#2E4A6B; --registrar-soft:#DCE6ED;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1D1811; --bg-raised:#262019; --ink:#ECE3CE; --ink-soft:#B4A88C;
+    --rule:#4A4030; --rule-strong:#5C4F35;
+    --seal:#D97D74; --seal-soft:#3A2320;
+    --gold:#D8B95B; --gold-soft:#332C16;
+    --store:#8FC3B4; --store-soft:#1B2E28;
+    --registrar:#8FB2D6; --registrar-soft:#1F2C3A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1D1811; --bg-raised:#262019; --ink:#ECE3CE; --ink-soft:#B4A88C;
+  --rule:#4A4030; --rule-strong:#5C4F35;
+  --seal:#D97D74; --seal-soft:#3A2320;
+  --gold:#D8B95B; --gold-soft:#332C16;
+  --store:#8FC3B4; --store-soft:#1B2E28;
+  --registrar:#8FB2D6; --registrar-soft:#1F2C3A;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.5;}
+.page{max-width:760px;margin:0 auto;padding:48px 24px 100px;}
+h1{font-family:'Fraunces','Source Serif 4',Georgia,serif;font-size:28px;margin:0 0 4px;}
+.sub{color:var(--ink-soft);font-size:14px;margin:0 0 32px;max-width:56ch;}
+
+.dropzone{
+  border:2px dashed var(--rule-strong); border-radius:10px; background:var(--bg-raised);
+  padding:40px 24px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s;
+}
+.dropzone.drag{border-color:var(--seal); background:var(--seal-soft);}
+.dropzone .icon{font-size:28px; margin-bottom:8px;}
+.dropzone .primary{font-weight:600; margin-bottom:4px;}
+.dropzone .hint{font-size:12.5px; color:var(--ink-soft);}
+input[type=file]{display:none;}
+
+.file-list{list-style:none; margin:16px 0 0; padding:0; display:flex; flex-direction:column; gap:6px;}
+.file-row{
+  display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--rule);
+  border-radius:6px; padding:8px 12px; font-size:13.5px;
+}
+.file-row .name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.file-row .size{color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:11.5px;}
+.file-row button{background:none;border:none;color:var(--seal);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+
+.run-row{margin-top:16px; display:flex; align-items:center; gap:12px;}
+button.primary{
+  background:var(--seal); color:#fff; border:none; border-radius:6px; padding:10px 20px;
+  font-family:inherit; font-size:14px; font-weight:600; cursor:pointer;
+}
+button.primary:disabled{background:var(--rule-strong); color:var(--ink-soft); cursor:not-allowed;}
+button.primary:not(:disabled):hover{opacity:.92;}
+
+.stage-badge{
+  display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 8px;
+  border-radius:10px; white-space:nowrap; text-transform:uppercase; letter-spacing:.03em;
+}
+.stage-badge.queued{background:var(--rule); color:var(--ink-soft);}
+.stage-badge.uploading, .stage-badge.classifying, .stage-badge.extracting{background:var(--registrar-soft); color:var(--registrar);}
+.stage-badge.classified{background:var(--registrar-soft); color:var(--registrar);}
+.stage-badge.extracted, .stage-badge.done{background:var(--store-soft); color:var(--store);}
+.stage-badge.error{background:var(--seal-soft); color:var(--seal);}
+
+.section{margin-top:36px;}
+.section h2{font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); border-bottom:1px solid var(--rule); padding-bottom:6px; margin:0 0 12px;}
+
+.progress-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.progress-row{
+  display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--rule);
+  border-radius:6px; padding:9px 12px; font-size:13.5px;
+}
+.progress-row .name{flex:1;}
+.progress-row .detail{font-size:11.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+
+.matter-card{
+  background:var(--bg-raised); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin-bottom:12px;
+}
+.matter-card h3{font-family:'Fraunces','Source Serif 4',serif; font-size:17px; margin:0 0 8px;}
+.matter-stats{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12.5px; color:var(--ink-soft); margin-bottom:12px;}
+.matter-stats b{color:var(--ink); font-family:'IBM Plex Mono',monospace;}
+.matter-actions{display:flex; gap:8px;}
+.btn{
+  display:inline-block; text-decoration:none; font-size:13px; font-weight:600; padding:7px 14px; border-radius:6px;
+  border:1px solid var(--rule-strong); color:var(--ink); background:var(--bg);
+}
+.btn.accent{background:var(--registrar); color:#fff; border-color:var(--registrar);}
+
+.unclassified-box{background:var(--seal-soft); border:1px solid var(--seal); border-radius:8px; padding:12px 16px; font-size:13.5px;}
+.unclassified-box b{color:var(--seal);}
+
+.error-box{background:var(--seal-soft); border:1px solid var(--seal); border-radius:8px; padding:14px 16px; color:var(--seal); font-size:13.5px;}
+
+.registry-list{display:flex; flex-wrap:wrap; gap:6px;}
+.registry-chip{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; background:var(--gold-soft); color:var(--gold);
+  padding:3px 9px; border-radius:10px;
+}
+.hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Title Scrutiny — Document Intake</h1>
+  <p class="sub">Upload the documents for one property (sale deeds, gift/settlement deeds, powers of attorney, mortgage memoranda, agreements to sell — any mix of Tamil and English scans). The pipeline classifies, extracts, reconciles the title chain, and drafts a Legal Scrutiny Report.</p>
+
+  <div id="dropzone" class="dropzone">
+    <div class="icon">📄</div>
+    <div class="primary">Drop PDFs here, or click to browse</div>
+    <div class="hint">Multiple files at once — they'll be treated as one intake batch and grouped into matters automatically.</div>
+    <input id="fileInput" type="file" accept="application/pdf" multiple>
+  </div>
+
+  <ul id="fileList" class="file-list"></ul>
+
+  <div class="run-row">
+    <button id="runBtn" class="primary" disabled>Run pipeline</button>
+    <span id="runHint" class="hint" style="font-size:12.5px;color:var(--ink-soft);"></span>
+  </div>
+
+  <div id="progressSection" class="section hidden">
+    <h2>Processing</h2>
+    <ul id="progressList" class="progress-list"></ul>
+  </div>
+
+  <div id="resultsSection" class="section hidden">
+    <h2>Matters found</h2>
+    <div id="matterCards"></div>
+    <div id="unclassifiedBox" class="unclassified-box hidden"></div>
+  </div>
+
+  <div id="errorSection" class="section hidden">
+    <div id="errorBox" class="error-box"></div>
+  </div>
+
+  <div class="section">
+    <h2>Registered document types</h2>
+    <div id="registryList" class="registry-list"></div>
+  </div>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileListEl = document.getElementById('fileList');
+const runBtn = document.getElementById('runBtn');
+const runHint = document.getElementById('runHint');
+const progressSection = document.getElementById('progressSection');
+const progressList = document.getElementById('progressList');
+const resultsSection = document.getElementById('resultsSection');
+const matterCards = document.getElementById('matterCards');
+const unclassifiedBox = document.getElementById('unclassifiedBox');
+const errorSection = document.getElementById('errorSection');
+const errorBox = document.getElementById('errorBox');
+
+let selectedFiles = [];
+let pollTimer = null;
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+  fileListEl.innerHTML = '';
+  selectedFiles.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.className = 'file-row';
+    li.innerHTML = `<span class="name">${f.name}</span><span class="size">${fmtSize(f.size)}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.setAttribute('aria-label', 'Remove ' + f.name);
+    btn.onclick = () => { selectedFiles.splice(i, 1); renderFileList(); };
+    li.appendChild(btn);
+    fileListEl.appendChild(li);
+  });
+  runBtn.disabled = selectedFiles.length === 0;
+  runHint.textContent = selectedFiles.length ? `${selectedFiles.length} file(s) ready` : '';
+}
+
+function addFiles(fileListLike) {
+  const incoming = Array.from(fileListLike).filter((f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  const existingNames = new Set(selectedFiles.map((f) => f.name));
+  incoming.forEach((f) => { if (!existingNames.has(f.name)) selectedFiles.push(f); });
+  renderFileList();
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+function stageLabel(stage) {
+  return {
+    queued: 'Queued', uploading: 'Uploading', classifying: 'Classifying',
+    classified: 'Classified', extracting: 'Extracting', extracted: 'Extracted',
+    done: 'Done', error: 'Error',
+  }[stage] || stage;
+}
+
+function renderProgress(job) {
+  progressList.innerHTML = '';
+  job.files.forEach((f) => {
+    const li = document.createElement('li');
+    li.className = 'progress-row';
+    const detailParts = [];
+    if (f.documentType) detailParts.push(f.documentType.replace(/_/g, ' ') + (f.confidence ? ' · ' + f.confidence : ''));
+    if (typeof f.warnings === 'number') detailParts.push(`${f.warnings} warning(s)`);
+    if (f.error) detailParts.push(f.error);
+    li.innerHTML = `<span class="name">${f.label}</span><span class="detail">${detailParts.join(' · ')}</span><span class="stage-badge ${f.stage}">${stageLabel(f.stage)}</span>`;
+    progressList.appendChild(li);
+  });
+}
+
+function renderResults(state) {
+  matterCards.innerHTML = '';
+  (state.matters || []).forEach((m) => {
+    const card = document.createElement('div');
+    card.className = 'matter-card';
+    card.innerHTML = `
+      <h3>${m.matterId}</h3>
+      <div class="matter-stats">
+        <span><b>${m.documentCount}</b> document(s)</span>
+        <span>chain <b>${m.chainSpan}</b></span>
+        <span>35-yr rule: <b>${m.meetsThirtyFiveYearRule ? 'Met' : 'Not met'}</b></span>
+        <span><b>${m.surveyConflicts}</b> survey conflict(s)</span>
+        <span><b>${m.encumbrances}</b> encumbrance(s)</span>
+      </div>
+      <div class="matter-actions">
+        <a class="btn accent" href="/review" target="_blank" rel="noopener">View review</a>
+        <a class="btn" href="/reports/${m.matterId}.docx">Download report (.docx)</a>
+      </div>`;
+    matterCards.appendChild(card);
+  });
+
+  if (state.unclassified && state.unclassified.length) {
+    unclassifiedBox.classList.remove('hidden');
+    unclassifiedBox.innerHTML = `<b>${state.unclassified.length} document(s) unclassified</b> — no matching type in the Schema Registry:<br>` +
+      state.unclassified.map((u) => `${u.label}${u.reasoning ? ' — ' + u.reasoning : ''}`).join('<br>');
+  } else {
+    unclassifiedBox.classList.add('hidden');
+  }
+
+  resultsSection.classList.remove('hidden');
+}
+
+async function poll() {
+  const res = await fetch('/api/status');
+  const state = await res.json();
+  renderProgress(state);
+
+  if (state.status === 'done') {
+    clearInterval(pollTimer);
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run pipeline';
+    renderResults(state);
+  } else if (state.status === 'error') {
+    clearInterval(pollTimer);
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run pipeline';
+    errorSection.classList.remove('hidden');
+    errorBox.textContent = state.error || 'Something went wrong.';
+  }
+}
+
+runBtn.addEventListener('click', async () => {
+  if (!selectedFiles.length) return;
+  runBtn.disabled = true;
+  runBtn.textContent = 'Running…';
+  resultsSection.classList.add('hidden');
+  errorSection.classList.add('hidden');
+  progressSection.classList.remove('hidden');
+  progressList.innerHTML = selectedFiles.map((f) => `<li class="progress-row"><span class="name">${f.name}</span><span class="detail"></span><span class="stage-badge queued">Queued</span></li>`).join('');
+
+  const formData = new FormData();
+  selectedFiles.forEach((f) => formData.append('files', f));
+
+  try {
+    const res = await fetch('/api/run', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Upload failed (${res.status})`);
+    }
+    pollTimer = setInterval(poll, 1500);
+    poll();
+  } catch (err) {
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run pipeline';
+    errorSection.classList.remove('hidden');
+    errorBox.textContent = err.message;
+  }
+});
+
+fetch('/api/registry').then((r) => r.json()).then((types) => {
+  document.getElementById('registryList').innerHTML =
+    types.map((t) => `<span class="registry-chip" title="${t.description.replace(/"/g, '&quot;')}">${t.label}</span>`).join('');
+}).catch(() => {});
+</script>
+</body>
+</html>

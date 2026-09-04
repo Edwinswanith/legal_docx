@@ -1,0 +1,14 @@
+node_modules/
+.env
+
+# CLI-generated output (from run.js --samples / --matter / --reconcile) —
+# regenerate locally with `npm run ingest:samples`; kept out of git so a
+# demo run doesn't get committed as if it were source.
+output/extractions/*.json
+output/MATTER-*.json
+output/Legal-Scrutiny-Report-MATTER-*.docx
+output/matter-review.html
+
+# The web UI's single-slot working directory — ephemeral by design, never
+# meant to be committed or to survive a redeploy.
+output/current/

@@ -1,0 +1,22 @@
+{
+  "name": "title-scrutiny-pipeline",
+  "private": true,
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "ingest": "node run.js",
+    "ingest:samples": "node run.js --samples",
+    "ingest:list": "node run.js --list",
+    "verify:title-chain": "node scripts/verify-title-chain.js",
+    "reconcile": "node run.js --reconcile",
+    "serve": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.21.0",
+    "docx": "^9.7.1",
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
+  }
+}
