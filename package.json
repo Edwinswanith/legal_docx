@@ -12,7 +12,9 @@
     "verify:title-chain": "node scripts/verify-title-chain.js",
     "reconcile": "node run.js --reconcile",
     "serve": "node server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "gold:init": "node scripts/gold.js init",
+    "gold:score": "node scripts/gold.js score"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

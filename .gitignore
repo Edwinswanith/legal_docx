@@ -17,3 +17,7 @@ output/current/
 output/accuracy-runs/
 output/accuracy-report.json
 .DS_Store
+
+# Human-verified labels contain real PAN/Aadhaar numbers
+gold/
+output/gold-report.json

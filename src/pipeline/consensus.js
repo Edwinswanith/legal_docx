@@ -152,4 +152,4 @@ function mergeRuns(runs) {
   return { merged, disagreements };
 }
 
-module.exports = { mergeRuns, CRITICAL_FIELDS };
+module.exports = { mergeRuns, CRITICAL_FIELDS, norm };
