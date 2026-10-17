@@ -123,15 +123,21 @@ Extract every field in the schema exactly as written in the document. Rules:
 - Never invent a value. If a field is not present or not legible, omit it (or use null/empty array) rather than guessing.
 - Transcribe numbers, dates, and names exactly as printed, including any inconsistent spelling — do not normalize or correct them.
 - For every value you extract for a field listed under "citations", record which page it came from (pages are 1-indexed in the order supplied) and a short supporting quote.
-- If a party's identity or a figure is genuinely ambiguous or hard to read, still extract your best reading and say so in "notes" rather than silently skipping it.`;
+- If a party's identity or a figure is genuinely ambiguous or hard to read, still extract your best reading and say so in "notes" rather than silently skipping it.
+
+Conventions in these deeds that are easy to get wrong:
+- Extent written "Acre 0.47 Cents" (or "Acre 0.47") means 0.47 ACRE (= 47 cents). Record extentValue "0.47" with extentUnit "Acre" — never "0.47" with unit "Cents".
+- Survey numbers: the older "Survey No." / "S.No." / "Old Survey No." goes in oldSurveyNumber; the town-survey "T.S.No." goes in newSurveyNumber. Where the deed says "Old Survey No.X New Survey No.Y", X is old and Y is new. Do not put TSLR or block/ward references into the new survey number.
+- Include every power agent / attorney who executes or represents a party as its own entry in parties (role "POWER AGENT"), with their PAN and Aadhaar if they appear anywhere in the document, including the ID-card pages at the end.
+- Read PAN and Aadhaar numbers from the attached ID-card copies as well as the deed text; they often appear only there.`;
 }
 
-async function extractFields(ai, file, typeId) {
+async function extractFields(ai, file, typeId, { model = EXTRACT_MODEL } = {}) {
   const { getDocType } = require('../registry/doc-types');
   const docType = getDocType(typeId);
   const response = await withRetry(() =>
     ai.models.generateContent({
-      model: EXTRACT_MODEL,
+      model,
       contents: createUserContent([createPartFromUri(file.uri, file.mimeType), extractPrompt(docType.label)]),
       config: {
         responseMimeType: 'application/json',

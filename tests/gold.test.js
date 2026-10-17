@@ -57,3 +57,44 @@ test('per-field breakdown is reported', () => {
   const s = scoreAgainstGold(extraction, projectCritical(extraction));
   assert.strictEqual(s.byField.panNumber.expected, 2);
 });
+
+test('survey wording, honorifics and role phrasing do not cause misses', () => {
+  const gold = projectCritical(extraction);
+  gold.parties[0].fullName = 'HARSHA VASANT';
+  gold.parties[1].role = 'PURCHASER';
+  gold.propertySchedules[0].newSurveyNumber = 'Part of T.S.No.8, Block No.20';
+  assert.strictEqual(scoreAgainstGold(extraction, gold).overall.recall, 1);
+});
+
+test('an extra survey number is a mismatch', () => {
+  const gold = projectCritical(extraction);
+  const alt = structuredClone(extraction);
+  alt.propertySchedules[0].newSurveyNumber = 'TSLR 130/6, T.S.No.8';
+  assert.ok(scoreAgainstGold(alt, gold).overall.recall < 1);
+});
+
+test('survey shorthand "130/2&6" equals "130/2, 130/6"', () => {
+  const gold = projectCritical(extraction);
+  gold.propertySchedules[0].oldSurveyNumber = '130/2&6';
+  const alt = structuredClone(extraction);
+  alt.propertySchedules[0].oldSurveyNumber = 'Old Survey No.130/2 & 130/6';
+  assert.strictEqual(scoreAgainstGold(alt, gold).byField.oldSurveyNumber.found, 1);
+});
+
+test('extent is compared in cents, so a unit error is caught', () => {
+  const gold = projectCritical(extraction);
+  gold.propertySchedules[0] = { ...gold.propertySchedules[0], extentValue: '0.48', extentUnit: 'Acre' };
+  const ok = structuredClone(extraction);
+  ok.propertySchedules[0] = { ...ok.propertySchedules[0], extentValue: '48', extentUnit: 'Cents' };
+  const bad = structuredClone(extraction);
+  bad.propertySchedules[0] = { ...bad.propertySchedules[0], extentValue: '0.48', extentUnit: 'Cents' };
+  assert.strictEqual(scoreAgainstGold(ok, gold).byField.extent.found, 1);
+  assert.strictEqual(scoreAgainstGold(bad, gold).byField.extent.found, 0);
+});
+
+test('fields listed in _skip are not scored', () => {
+  const gold = { ...projectCritical(extraction), stampDutyPaid: null, _skip: ['stampDutyPaid'] };
+  const s = scoreAgainstGold(extraction, gold);
+  assert.strictEqual(s.byField.stampDutyPaid, undefined);
+  assert.strictEqual(s.overall.precision, 1);
+});

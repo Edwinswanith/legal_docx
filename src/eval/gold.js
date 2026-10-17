@@ -5,6 +5,8 @@
 // (precision) fail differently, which is why both are reported.
 
 const { norm } = require('../pipeline/consensus');
+const { normalizeName } = require('../pipeline/identity');
+const { toCents } = require('../pipeline/units');
 
 const DOC_FIELDS = ['documentNumber', 'documentYear', 'executionDate'];
 const PARTY_FIELDS = ['role', 'fullName', 'panNumber', 'aadhaarNumber'];
@@ -19,15 +21,38 @@ function projectCritical(extraction) {
     ...pick(extraction, DOC_FIELDS),
     considerationAmount: extraction.considerationAmount?.value ?? null,
     stampDutyPaid: extraction.stamp?.stampDutyPaid ?? null,
-    parties: (extraction.parties || []).map((p) => pick(p, PARTY_FIELDS)),
+    // Witnesses attest; they aren't parties to the title. Gold sets leave them out.
+    parties: (extraction.parties || []).filter((p) => !/witness/i.test(p.role || '')).map((p) => pick(p, PARTY_FIELDS)),
     propertySchedules: (extraction.propertySchedules || []).map((s) => pick(s, SCHEDULE_FIELDS)),
   };
 }
 
 // Digits-only for amounts and identity numbers; word-normalised for the rest.
 const DIGITS = new Set(['considerationAmount', 'stampDutyPaid', 'aadhaarNumber', 'documentYear']);
+const SURVEY = new Set(['oldSurveyNumber', 'newSurveyNumber']);
+
+// "Part of T.S.No.8, Block 20" and "T.S.No.8" name the same survey number; a
+// survey field is compared as its set of numbers (8, 130/6, ...). Wording
+// around them doesn't matter, an extra or missing number does.
+// Block and ward numbers locate the survey number; they aren't one.
+// "130/2&6" is the deed's shorthand for 130/2 and 130/6.
+const expandShorthand = (v) => String(v).replace(/(\d+)\/(\d+)\s*(?:&|and)\s*(\d+)(?![\d/])/gi, '$1/$2, $1/$3');
+const surveyNumbers = (v) => [...new Set(expandShorthand(v).replace(/\b(block|ward)\s*no\.?\s*\w+/gi, ' ').match(/\d+(?:\/\d+[A-Z]?)*/gi) || [])].sort().join(',');
+
+// The deed's own wording ("VENDORS' POWER AGENT", "Purchaser") reduced to the
+// role the report cares about.
+function canonicalRole(v) {
+  const r = String(v).toLowerCase();
+  if (/agent|attorney/.test(r)) return 'agent';
+  const known = ['vendor', 'purchaser', 'settlor', 'settlee', 'donor', 'donee', 'principal', 'mortgagor', 'mortgagee', 'witness'];
+  return known.find((k) => r.includes(k)) || norm(v);
+}
+
 function comparable(field, value) {
   if (field === 'documentNumber') return norm(value).split(' ')[0]; // "2717 of 2024" -> "2717"
+  if (field === 'fullName') return normalizeName(value).replace(/\b(MR|MRS|MS|SMT|DR)\b/g, '').replace(/\s+/g, ' ').trim();
+  if (field === 'role') return canonicalRole(value);
+  if (SURVEY.has(field)) return surveyNumbers(value);
   return DIGITS.has(field) ? String(value).replace(/\D/g, '') : norm(value);
 }
 
@@ -42,7 +67,16 @@ function facts(projected) {
   add('considerationAmount', projected.considerationAmount);
   add('stampDutyPaid', projected.stampDutyPaid);
   (projected.parties || []).forEach((p) => PARTY_FIELDS.forEach((f) => add(f, p[f])));
-  (projected.propertySchedules || []).forEach((s) => SCHEDULE_FIELDS.forEach((f) => add(f, s[f])));
+  (projected.propertySchedules || []).forEach((s) => {
+    ['oldSurveyNumber', 'newSurveyNumber', 'village'].forEach((f) => add(f, s[f]));
+    // Value and unit only mean something together: "0.48 Cents" and "0.48 Acre"
+    // differ 100x. Scored as one fact, in cents when the unit is convertible.
+    if (present(s.extentValue)) {
+      const cents = toCents(s.extentValue, s.extentUnit);
+      const key = cents == null ? norm(`${s.extentValue} ${s.extentUnit || ''}`.replace(/(\d)(st|nd|rd|th)\b/gi, '$1')) : `${Math.round(cents * 10) / 10}c`;
+      out.push({ field: 'extent', key: `extent=${key}`, value: `${s.extentValue} ${s.extentUnit || ''}`.trim() });
+    }
+  });
   return out;
 }
 
@@ -52,9 +86,12 @@ function groupByKey(list) {
   return m;
 }
 
+// gold._skip lists fields the labeller couldn't determine from the scan; they
+// are left out on both sides rather than guessed.
 function scoreAgainstGold(extraction, gold) {
-  const expected = facts(gold);
-  const produced = facts(projectCritical(extraction));
+  const skip = new Set(gold._skip || []);
+  const expected = facts(gold).filter((f) => !skip.has(f.field));
+  const produced = facts(projectCritical(extraction)).filter((f) => !skip.has(f.field));
   const expectedBy = groupByKey(expected);
   const producedBy = groupByKey(produced);
 

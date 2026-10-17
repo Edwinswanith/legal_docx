@@ -56,6 +56,13 @@ function validateExtraction(extraction) {
     if (sched.extentUnit && !KNOWN_EXTENT_UNITS.includes(normalize(sched.extentUnit))) {
       warnings.push(`propertySchedules[${i}].extentUnit ("${sched.extentUnit}") is not in the known unit list — check for a transcription issue or add it to KNOWN_EXTENT_UNITS.`);
     }
+    // Tamil Nadu deeds write "Acre 0.47 Cents" for 0.47 acre (= 47 cents). The
+    // model has repeatedly recorded that as 0.47 *cents* — a 100x error. No
+    // land parcel in a title deed is under one cent, so flag it.
+    const centsValue = Number(String(sched.extentValue ?? '').replace(/[^0-9.]/g, ''));
+    if (/^cents?$/.test(normalize(sched.extentUnit || '')) && centsValue > 0 && centsValue < 1) {
+      warnings.push(`propertySchedules[${i}].extent "${sched.extentValue} ${sched.extentUnit}" is under one cent — almost certainly "Acre ${sched.extentValue} Cents" (= ${Math.round(centsValue * 100)} cents) misread. Verify against the scan.`);
+    }
     if (sched.extentValue && Number.isNaN(Number(String(sched.extentValue).replace(/[^0-9.]/g, '')))) {
       warnings.push(`propertySchedules[${i}].extentValue ("${sched.extentValue}") is not numeric.`);
     }
