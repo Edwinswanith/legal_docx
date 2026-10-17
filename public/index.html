@@ -180,7 +180,7 @@ function renderFileList() {
   selectedFiles.forEach((f, i) => {
     const li = document.createElement('li');
     li.className = 'file-row';
-    li.innerHTML = `<span class="name">${f.name}</span><span class="size">${fmtSize(f.size)}</span>`;
+    li.innerHTML = `<span class="name">${esc(f.name)}</span><span class="size">${fmtSize(f.size)}</span>`;
     const btn = document.createElement('button');
     btn.textContent = '✕';
     btn.setAttribute('aria-label', 'Remove ' + f.name);
@@ -209,6 +209,9 @@ dropzone.addEventListener('drop', (e) => {
 });
 fileInput.addEventListener('change', () => addFiles(fileInput.files));
 
+// Filenames, labels and model-written reasoning all reach innerHTML below.
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function stageLabel(stage) {
   return {
     queued: 'Queued', uploading: 'Uploading', classifying: 'Classifying',
@@ -226,7 +229,7 @@ function renderProgress(job) {
     if (f.documentType) detailParts.push(f.documentType.replace(/_/g, ' ') + (f.confidence ? ' · ' + f.confidence : ''));
     if (typeof f.warnings === 'number') detailParts.push(`${f.warnings} warning(s)`);
     if (f.error) detailParts.push(f.error);
-    li.innerHTML = `<span class="name">${f.label}</span><span class="detail">${detailParts.join(' · ')}</span><span class="stage-badge ${f.stage}">${stageLabel(f.stage)}</span>`;
+    li.innerHTML = `<span class="name">${esc(f.label)}</span><span class="detail">${esc(detailParts.join(' · '))}</span><span class="stage-badge ${f.stage}">${stageLabel(f.stage)}</span>`;
     progressList.appendChild(li);
   });
 }
@@ -237,7 +240,7 @@ function renderResults(state) {
     const card = document.createElement('div');
     card.className = 'matter-card';
     card.innerHTML = `
-      <h3>${m.matterId}</h3>
+      <h3>${esc(m.matterId)}</h3>
       <div class="matter-stats">
         <span><b>${m.documentCount}</b> document(s)</span>
         <span>chain <b>${m.chainSpan}</b></span>
@@ -247,7 +250,7 @@ function renderResults(state) {
       </div>
       <div class="matter-actions">
         <a class="btn accent" href="/review" target="_blank" rel="noopener">View review</a>
-        <a class="btn" href="/reports/${m.matterId}.docx">Download report (.docx)</a>
+        <a class="btn" href="/reports/${encodeURIComponent(m.matterId)}.docx">Download report (.docx)</a>
       </div>`;
     matterCards.appendChild(card);
   });
@@ -255,7 +258,7 @@ function renderResults(state) {
   if (state.unclassified && state.unclassified.length) {
     unclassifiedBox.classList.remove('hidden');
     unclassifiedBox.innerHTML = `<b>${state.unclassified.length} document(s) unclassified</b> — no matching type in the Schema Registry:<br>` +
-      state.unclassified.map((u) => `${u.label}${u.reasoning ? ' — ' + u.reasoning : ''}`).join('<br>');
+      state.unclassified.map((u) => esc(u.label + (u.reasoning ? ' — ' + u.reasoning : ''))).join('<br>');
   } else {
     unclassifiedBox.classList.add('hidden');
   }
@@ -264,8 +267,13 @@ function renderResults(state) {
 }
 
 async function poll() {
-  const res = await fetch('/api/status');
-  const state = await res.json();
+  let state;
+  try {
+    const res = await fetch('/api/status');
+    state = await res.json();
+  } catch {
+    return; // transient network blip or server restart — the next tick retries
+  }
   renderProgress(state);
 
   if (state.status === 'done') {
@@ -289,7 +297,7 @@ runBtn.addEventListener('click', async () => {
   resultsSection.classList.add('hidden');
   errorSection.classList.add('hidden');
   progressSection.classList.remove('hidden');
-  progressList.innerHTML = selectedFiles.map((f) => `<li class="progress-row"><span class="name">${f.name}</span><span class="detail"></span><span class="stage-badge queued">Queued</span></li>`).join('');
+  progressList.innerHTML = selectedFiles.map((f) => `<li class="progress-row"><span class="name">${esc(f.name)}</span><span class="detail"></span><span class="stage-badge queued">Queued</span></li>`).join('');
 
   const formData = new FormData();
   selectedFiles.forEach((f) => formData.append('files', f));

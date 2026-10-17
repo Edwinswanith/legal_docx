@@ -2,6 +2,24 @@ const fs = require('fs');
 const path = require('path');
 const { createClient, uploadDocument, classifyDocument, extractFields } = require('../gemini/client');
 const { validateExtraction } = require('./validate');
+const { mergeRuns } = require('./consensus');
+
+// Independent extractions per document, merged by consensus.js. 1 disables it.
+const CONSENSUS_RUNS = Math.max(1, Number(process.env.CONSENSUS_RUNS) || 2);
+
+// Runs extraction CONSENSUS_RUNS times in parallel. A run that fails is
+// dropped (the document still extracts from the survivors, flagged as single-
+// run); only all runs failing is an error.
+async function extractWithConsensus(client, file, typeId) {
+  const settled = await Promise.allSettled(Array.from({ length: CONSENSUS_RUNS }, () => extractFields(client, file, typeId)));
+  const runs = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  if (runs.length === 0) throw settled[0].reason;
+  const { merged, disagreements } = mergeRuns(runs);
+  return {
+    extraction: merged,
+    consensus: { runsRequested: CONSENSUS_RUNS, runsSucceeded: runs.length, disagreements },
+  };
+}
 
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'output', 'extractions');
 
@@ -31,10 +49,11 @@ async function runOnFile(filePath, { ai, label, outputDir = OUTPUT_DIR, onProgre
 
   let extraction = null;
   let validation = null;
+  let consensus = null;
 
   if (classification.documentType !== 'UNCLASSIFIED') {
     progress('extracting');
-    extraction = await extractFields(client, file, classification.documentType);
+    ({ extraction, consensus } = await extractWithConsensus(client, file, classification.documentType));
     validation = validateExtraction(extraction);
     progress('extracted', { validation });
   }
@@ -47,11 +66,13 @@ async function runOnFile(filePath, { ai, label, outputDir = OUTPUT_DIR, onProgre
     geminiFile: { name: file.name, uri: file.uri, mimeType: file.mimeType },
     classification,
     extraction,
+    consensus,
     validation,
     needsReview:
       classification.documentType === 'UNCLASSIFIED' ||
       classification.confidence !== 'HIGH' ||
-      Boolean(validation && (!validation.isClean || validation.warnings.length > 0)),
+      Boolean(validation && (!validation.isClean || validation.warnings.length > 0)) ||
+      Boolean(consensus && (consensus.disagreements.length > 0 || consensus.runsSucceeded < consensus.runsRequested)),
   };
 
   fs.mkdirSync(outputDir, { recursive: true });
@@ -96,6 +117,11 @@ function printSummary(record) {
     console.log(`  validation: ${validation.errors.length} error(s), ${validation.warnings.length} warning(s)`);
     validation.errors.forEach((e) => console.log(`    ✗ ${e}`));
     validation.warnings.forEach((w) => console.log(`    ! ${w}`));
+  }
+  if (record.consensus) {
+    const c = record.consensus;
+    console.log(`  consensus: ${c.runsSucceeded}/${c.runsRequested} runs, ${c.disagreements.length} flagged field(s)`);
+    c.disagreements.slice(0, 10).forEach((d) => console.log(`    ~ ${d.kind} ${d.path}: ${JSON.stringify(d.values)}`));
   }
   console.log(`  needs review: ${needsReview ? 'yes' : 'no'}`);
 }

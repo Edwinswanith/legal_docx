@@ -18,6 +18,20 @@ function loadExtractionRecords(dir) {
     .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
 }
 
+// Surfaces extraction-run disagreements through the same warnings channel the
+// review page and report already use for a flagged document.
+function consensusWarnings(consensus) {
+  if (!consensus) return [];
+  const out = [];
+  if (consensus.runsSucceeded < consensus.runsRequested) {
+    out.push(`Only ${consensus.runsSucceeded} of ${consensus.runsRequested} extraction runs succeeded — values were not cross-checked.`);
+  }
+  if (consensus.disagreements.length) {
+    out.push(`${consensus.disagreements.length} field(s) differed between independent extraction runs — verify against the scan (see Flagged fields).`);
+  }
+  return out;
+}
+
 function toMatterDocument(record, index) {
   const e = record.extraction;
   return {
@@ -37,7 +51,8 @@ function toMatterDocument(record, index) {
     conditionsRestrictionsEncumbrances: e.conditionsRestrictionsEncumbrances || [],
     considerationAmount: e.considerationAmount,
     citations: e.citations || [],
-    warnings: record.validation?.warnings || [],
+    consensus: record.consensus || null,
+    warnings: [...(record.validation?.warnings || []), ...consensusWarnings(record.consensus)],
     errors: record.validation?.errors || [],
     raw: e,
   };

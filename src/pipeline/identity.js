@@ -85,7 +85,16 @@ function resolveIdentities(mentions) {
       const a = normalizeName(clusters[i].canonicalName).split(' ');
       const b = normalizeName(clusters[j].canonicalName).split(' ');
       const shared = a.filter((tok) => tok.length > 2 && b.includes(tok));
-      if (shared.length > 0) {
+      // A bare shared surname is how every family in a deed looks — flagging
+      // each pair buries the real candidates. Different PANs/Aadhaar mean
+      // different people; otherwise require two shared tokens, or one name
+      // fully contained in the other (e.g. "KUMUD VASANT" in "KUMUD KISHORE VASANT").
+      const bothHave = (x, y) => x && y;
+      const differentIds =
+        (bothHave(clusters[i].pan, clusters[j].pan) && clusters[i].pan !== clusters[j].pan) ||
+        (bothHave(clusters[i].aadhaar, clusters[j].aadhaar) && clusters[i].aadhaar !== clusters[j].aadhaar);
+      const contained = a.every((tok) => b.includes(tok)) || b.every((tok) => a.includes(tok));
+      if (!differentIds && (shared.length >= 2 || (shared.length > 0 && contained))) {
         possibleDuplicates.push({ a: clusters[i].clusterId, b: clusters[j].clusterId, sharedTokens: shared });
       }
     }

@@ -12,6 +12,10 @@ const EXTRACT_MODEL = process.env.GEMINI_EXTRACT_MODEL || 'gemini-pro-latest';
 // upload) forever instead of failing. Every SDK call below is bounded.
 const REQUEST_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 90000;
 const httpOptions = { timeout: REQUEST_TIMEOUT_MS };
+// Full-schema extraction on a long scan with the pro model routinely runs past
+// 90s; the accuracy harness saw 499 CANCELLED / 504 on exactly those calls.
+const EXTRACT_TIMEOUT_MS = Number(process.env.GEMINI_EXTRACT_TIMEOUT_MS) || 240000;
+const extractHttpOptions = { timeout: EXTRACT_TIMEOUT_MS };
 
 function createClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -57,14 +61,14 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function withRetry(fn, { attempts = 3, baseDelayMs = 3000, label = 'request' } = {}) {
+async function withRetry(fn, { attempts = 3, baseDelayMs = 3000, label = 'request', timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   let lastErr;
   for (let i = 0; i < attempts; i += 1) {
     try {
-      return await withTimeout(fn(), REQUEST_TIMEOUT_MS + 15000, label);
+      return await withTimeout(fn(), timeoutMs + 15000, label);
     } catch (err) {
       lastErr = err;
-      const transient = /503|UNAVAILABLE|deadline|timeout|ETIMEDOUT|ECONNRESET/i.test(err.message || err.name || '');
+      const transient = /503|504|499|UNAVAILABLE|CANCELLED|DEADLINE_EXCEEDED|deadline|timeout|ETIMEDOUT|ECONNRESET/i.test(err.message || err.name || '');
       if (!transient || i === attempts - 1) throw err;
       await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** i));
     }
@@ -132,9 +136,10 @@ async function extractFields(ai, file, typeId) {
       config: {
         responseMimeType: 'application/json',
         responseSchema: getExtractionSchema(typeId),
-        httpOptions,
+        httpOptions: extractHttpOptions,
       },
     }),
+    { label: 'extract', timeoutMs: EXTRACT_TIMEOUT_MS },
   );
   return JSON.parse(response.text);
 }

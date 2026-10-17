@@ -136,6 +136,14 @@ app.get('/review', (_req, res) => {
   res.sendFile(reviewPath);
 });
 
+// The uploaded scans, so the review page can open a cited page directly
+// (`/files/<name>#page=N`). basename() keeps it inside UPLOADS_DIR.
+app.get('/files/:name', (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, path.basename(req.params.name));
+  if (!fs.existsSync(filePath)) return res.status(404).send('File not found.');
+  res.type('application/pdf').sendFile(filePath);
+});
+
 app.get('/reports/:matterId.docx', (req, res) => {
   const reportPath = path.join(CURRENT_DIR, `Legal-Scrutiny-Report-${req.params.matterId}.docx`);
   if (!fs.existsSync(reportPath)) return res.status(404).send('Report not found.');

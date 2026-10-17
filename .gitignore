@@ -12,3 +12,8 @@ output/matter-review.html
 # The web UI's single-slot working directory — ephemeral by design, never
 # meant to be committed or to survive a redeploy.
 output/current/
+
+# Accuracy-harness raw runs contain extracted PAN/Aadhaar from real deeds
+output/accuracy-runs/
+output/accuracy-report.json
+.DS_Store

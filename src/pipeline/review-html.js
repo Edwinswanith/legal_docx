@@ -18,6 +18,42 @@ function statTile(label, value, tone = '') {
   return `<div class="stat ${tone}"><div class="stat-value">${esc(value)}</div><div class="stat-label">${esc(label)}</div></div>`;
 }
 
+// Opens the uploaded scan at the cited page (served by server.js /files/:name).
+// Falls back to plain text for CLI runs, where there is no server to link to.
+function pageLink(doc, page) {
+  const label = `p.${esc(page ?? '?')}`;
+  const n = Number.parseInt(page, 10);
+  if (!doc.sourceFile || !Number.isInteger(n)) return label;
+  const name = encodeURIComponent(String(doc.sourceFile).split(/[\\/]/).pop());
+  return `<a class="pagelink" href="/files/${name}#page=${n}" target="_blank" rel="noopener">${label} ↗</a>`;
+}
+
+const KIND_LABEL = { conflict: 'runs disagree', omitted: 'missing in one run', 'item-in-one-run': 'entry in one run only' };
+
+// Maps a consensus path like parties[2].aadhaarNumber to a citation page when
+// the extraction recorded one for that exact field.
+function flaggedFieldsTable(doc) {
+  const rows = doc.consensus?.disagreements || [];
+  if (!rows.length) return '';
+  const show = (v) => (v == null ? '<span class="muted">not found</span>' : esc(v));
+  return `<h4>Flagged fields <span class="muted">(two independent extractions did not agree — check the scan)</span></h4>
+      <div class="table-wrap"><table class="flagged">
+        <thead><tr><th>Field</th><th>Issue</th><th>Run A</th><th>Run B</th><th>Scan</th></tr></thead>
+        <tbody>${rows.map((d) => {
+          const cite = doc.citations.find((c) => c.field === d.path);
+          return `<tr><td><code>${esc(d.path)}</code></td><td>${badge(KIND_LABEL[d.kind] || d.kind, d.kind === 'conflict' ? 'bad' : 'warn')}</td><td>${show(d.values[0])}</td><td>${show(d.values[1])}</td><td>${cite ? pageLink(doc, cite.page) : scanLink(doc)}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+}
+
+// For flagged fields with no recorded citation we can't know the page, so link
+// the scan itself rather than pointing at a page 1 that may be wrong.
+function scanLink(doc) {
+  if (!doc.sourceFile) return '<span class="muted">—</span>';
+  const name = encodeURIComponent(String(doc.sourceFile).split(/[\\/]/).pop());
+  return `<a class="pagelink" href="/files/${name}" target="_blank" rel="noopener">open ↗</a>`;
+}
+
 function documentCard(doc) {
   const flagged = doc.confidence !== 'HIGH' || doc.warnings.length || doc.errors.length;
   return `
@@ -45,12 +81,12 @@ function documentCard(doc) {
           </ul>
         </div>
       </div>
+      ${flaggedFieldsTable(doc)}
       ${doc.errors.length ? `<h4>Errors</h4><ul class="flag-list bad">${doc.errors.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
       ${doc.warnings.length ? `<h4>Warnings</h4><ul class="flag-list warn">${doc.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
       <h4>Citations <span class="muted">(source page · quote)</span></h4>
       <ul class="citations">
-        ${doc.citations.slice(0, 12).map((c) => `<li><code>${esc(c.field)}</code> — p.${esc(c.page ?? '?')}: <span class="quote">&ldquo;${esc(c.quote)}&rdquo;</span></li>`).join('') || '<li class="muted">None extracted</li>'}
-        ${doc.citations.length > 12 ? `<li class="muted">+ ${doc.citations.length - 12} more — see output/extractions/${esc(doc.label)}.json</li>` : ''}
+        ${doc.citations.map((c) => `<li><code>${esc(c.field)}</code> — ${pageLink(doc, c.page)}: <span class="quote">&ldquo;${esc(c.quote)}&rdquo;</span></li>`).join('') || '<li class="muted">None extracted</li>'}
       </ul>
     </div>
   </details>`;
@@ -216,6 +252,9 @@ ul.citations{list-style:none;margin:0;padding:0;font-size:12.5px;}
 ul.citations li{padding:3px 0;border-bottom:1px dotted var(--rule);}
 ul.citations code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--registrar);}
 .quote{color:var(--ink-soft);font-style:italic;}
+a.pagelink{color:var(--registrar);text-decoration:none;border-bottom:1px dotted currentColor;font-family:'IBM Plex Mono',monospace;font-size:11px;}
+table.flagged td{font-size:12.5px;vertical-align:top;}
+a.pagelink:hover{border-bottom-style:solid;}
 
 .table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;}
 table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-raised);}
