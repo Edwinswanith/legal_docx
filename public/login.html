@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Title Scrutiny</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="login-wrap">
+  <form class="card" id="loginForm" novalidate>
+    <h1>Title Scrutiny</h1>
+    <p class="sub">Sign in to upload documents and review reports.</p>
+    <div class="alert error hidden" id="error" role="alert"></div>
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn primary" type="submit" id="submitBtn">Sign in</button>
+    <p class="muted" style="font-size:12.5px;margin:16px 0 0;">No account? Ask your administrator to create one.</p>
+  </form>
+</main>
+<script>
+const form = document.getElementById('loginForm');
+const errorBox = document.getElementById('error');
+const submitBtn = document.getElementById('submitBtn');
+
+// Only same-site paths are honoured, so ?next= can't bounce a user to another site.
+function nextUrl() {
+  try {
+    const url = new URL(new URLSearchParams(location.search).get('next') || '/', location.origin);
+    return url.origin === location.origin ? url.pathname + url.search + url.hash : '/';
+  } catch {
+    return '/';
+  }
+}
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.classList.remove('hidden');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorBox.classList.add('hidden');
+  const username = form.username.value.trim();
+  const password = form.password.value;
+  if (!username || !password) return showError('Enter your username and password.');
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Signing in…';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+      body: JSON.stringify({ username, password }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Sign-in failed. Please try again.');
+    location.replace(nextUrl());
+  } catch (err) {
+    showError(err.message === 'Failed to fetch' ? 'Could not reach the server. Check your connection.' : err.message);
+    form.password.value = '';
+    form.password.focus();
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign in';
+  }
+});
+</script>
+</body>
+</html>

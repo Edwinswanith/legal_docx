@@ -33,6 +33,12 @@
   --registrar:#8FB2D6; --registrar-soft:#1F2C3A;
 }
 *{box-sizing:border-box;}
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--rule);background:var(--bg-raised);font-size:13.5px;flex-wrap:wrap;}
+.topbar .brand{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:16px;margin-right:auto;}
+.topbar a{color:var(--registrar);}
+.topbar .who{color:var(--ink-soft);}
+.topbar .who b{color:var(--ink);}
+.linkbtn{background:none;border:none;color:var(--registrar);cursor:pointer;font:inherit;padding:0;text-decoration:underline;}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.5;}
 .page{max-width:760px;margin:0 auto;padding:48px 24px 100px;}
 h1{font-family:'Fraunces','Source Serif 4',Georgia,serif;font-size:28px;margin:0 0 4px;}
@@ -109,10 +115,87 @@ button.primary:not(:disabled):hover{opacity:.92;}
   font-family:'IBM Plex Mono',monospace; font-size:11px; background:var(--gold-soft); color:var(--gold);
   padding:3px 9px; border-radius:10px;
 }
+
+/* ---- progress ---- */
+.progress-card{display:flex;gap:22px;align-items:center;background:var(--bg-raised);border:1px solid var(--rule);border-radius:12px;padding:22px 24px;}
+.scan-art{position:relative;width:64px;height:80px;flex:none;overflow:hidden;}
+.page-svg{width:64px;height:80px;display:block;}
+.page-body{fill:var(--bg);stroke:var(--rule-strong);stroke-width:2;}
+.page-fold{fill:none;stroke:var(--rule-strong);stroke-width:2;}
+.page-lines rect{fill:var(--rule-strong);opacity:.55;}
+.scan-beam{position:absolute;left:4px;right:4px;top:6px;height:14px;border-radius:2px;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--registrar) 45%,transparent),transparent);
+  animation:scan 1.8s ease-in-out infinite;}
+@keyframes scan{0%{transform:translateY(0);}50%{transform:translateY(52px);}100%{transform:translateY(0);}}
+.done-mark{position:absolute;inset:18px 10px;width:44px;height:44px;opacity:0;transform:scale(.6);transition:opacity .35s,transform .35s;}
+.done-mark path{fill:none;stroke:var(--store);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+.progress-card.is-done .scan-beam,.progress-card.is-error .scan-beam{display:none;}
+.progress-card.is-done .page-lines{opacity:.25;}
+.progress-card.is-done .done-mark{opacity:1;transform:scale(1);}
+.progress-card.is-done{border-color:var(--store);}
+.progress-card.is-error{border-color:var(--seal);}
+.progress-main{flex:1;min-width:0;}
+.progress-title{font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;overflow-wrap:anywhere;}
+.progress-subtitle{color:var(--ink-soft);font-size:13.5px;margin:2px 0 12px;min-height:1.4em;}
+.bar{height:8px;background:var(--rule);border-radius:999px;overflow:hidden;}
+.bar-fill{height:100%;width:0;border-radius:999px;transition:width .6s ease-out;
+  background:linear-gradient(90deg,var(--registrar),color-mix(in srgb,var(--registrar) 65%,var(--store)));
+  background-size:200% 100%;animation:shimmer 2.4s linear infinite;}
+@keyframes shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+.progress-card.is-done .bar-fill{background:var(--store);animation:none;}
+.progress-card.is-error .bar-fill{background:var(--seal);animation:none;}
+.progress-meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-soft);margin-top:6px;font-variant-numeric:tabular-nums;}
+.progress-meta #progressPercent{font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+.patience{margin-top:10px;font-size:12.5px;color:var(--gold);background:var(--gold-soft);border-radius:6px;padding:6px 10px;}
+
+.steps{list-style:none;margin:14px 0 0;padding:0 4px;display:flex;flex-direction:column;gap:2px;}
+.step{display:flex;align-items:center;gap:12px;padding:7px 0;font-size:14px;color:var(--ink-soft);}
+.step .dot{width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid var(--rule-strong);background:var(--bg);}
+.step.done{color:var(--ink);}
+.step.done .dot{background:var(--store);border-color:var(--store);}
+.step.done .dot::after{content:'';width:6px;height:10px;border:solid var(--bg);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg);}
+.step.active{color:var(--ink);font-weight:600;}
+.step.active .dot{border-color:var(--registrar);}
+.step.active .dot::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--registrar);animation:pulse 1.2s ease-in-out infinite;}
+.step.failed{color:var(--seal);}
+.step.failed .dot{border-color:var(--seal);background:var(--seal-soft);}
+.step .note{font-weight:400;color:var(--ink-soft);font-size:12.5px;margin-left:auto;text-align:right;}
+@keyframes pulse{0%,100%{transform:scale(.7);opacity:.6;}50%{transform:scale(1.1);opacity:1;}}
+.step{animation:fadein .3s ease-out both;}
+@keyframes fadein{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+.file-progress{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.file-progress li{display:grid;grid-template-columns:1fr 120px;gap:4px 12px;align-items:center;background:var(--bg-raised);border:1px solid var(--rule);border-radius:8px;padding:9px 12px;font-size:13.5px;}
+.file-progress .fname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file-progress .fstatus{font-size:12px;color:var(--ink-soft);grid-column:1;}
+.file-progress .mini{grid-column:2;grid-row:1 / span 2;height:5px;background:var(--rule);border-radius:999px;overflow:hidden;}
+.file-progress .mini > div{height:100%;background:var(--registrar);transition:width .6s ease-out;}
+.file-progress li.done .mini > div{background:var(--store);}
+.file-progress li.error{border-color:var(--seal);}
+.file-progress li.error .fstatus{color:var(--seal);}
+.file-progress li.error .mini > div{background:var(--seal);}
+
+.last-run{font-size:12.5px;color:var(--ink-soft);margin:-4px 0 12px;}
+
+@media (max-width:560px){
+  .progress-card{flex-direction:column;align-items:flex-start;padding:18px;}
+  .file-progress li{grid-template-columns:1fr 70px;}
+  .step .note{display:none;}
+}
+@media (prefers-reduced-motion: reduce){
+  .scan-beam,.bar-fill,.step.active .dot::after,.step{animation:none;}
+  .bar-fill,.done-mark{transition:none;}
+}
 .hidden{display:none !important;}
 </style>
 </head>
 <body>
+<header class="topbar">
+  <span class="brand">Title Scrutiny</span>
+  <a href="/admin" id="adminLink" class="hidden">Manage users</a>
+  <span class="who">Signed in as <b id="me">…</b></span>
+  <button class="linkbtn" id="logoutBtn" type="button">Sign out</button>
+</header>
 <div class="page">
   <h1>Title Scrutiny — Document Intake</h1>
   <p class="sub">Upload the documents for one property (sale deeds, gift/settlement deeds, powers of attorney, mortgage memoranda, agreements to sell — any mix of Tamil and English scans). The pipeline classifies, extracts, reconciles the title chain, and drafts a Legal Scrutiny Report.</p>
@@ -127,17 +210,35 @@ button.primary:not(:disabled):hover{opacity:.92;}
   <ul id="fileList" class="file-list"></ul>
 
   <div class="run-row">
-    <button id="runBtn" class="primary" disabled>Run pipeline</button>
+    <button id="runBtn" class="primary" disabled>Process documents</button>
     <span id="runHint" class="hint" style="font-size:12.5px;color:var(--ink-soft);"></span>
   </div>
 
   <div id="progressSection" class="section hidden">
-    <h2>Processing</h2>
-    <ul id="progressList" class="progress-list"></ul>
+    <div class="progress-card" id="progressCard">
+      <div class="scan-art" aria-hidden="true">
+        <svg viewBox="0 0 64 80" class="page-svg">
+          <path d="M6 4h38l14 14v58H6z" class="page-body"/>
+          <path d="M44 4v14h14" class="page-fold"/>
+          <g class="page-lines"><rect x="14" y="26" width="34" height="3" rx="1.5"/><rect x="14" y="34" width="28" height="3" rx="1.5"/><rect x="14" y="42" width="34" height="3" rx="1.5"/><rect x="14" y="50" width="22" height="3" rx="1.5"/><rect x="14" y="58" width="30" height="3" rx="1.5"/></g>
+        </svg>
+        <div class="scan-beam"></div>
+        <svg viewBox="0 0 24 24" class="done-mark"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+      <div class="progress-main" aria-live="polite">
+        <div class="progress-title" id="progressTitle">Starting…</div>
+        <div class="progress-subtitle" id="progressSubtitle"></div>
+        <div class="bar" id="bar" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar-fill" id="barFill"></div></div>
+        <div class="progress-meta"><span id="progressPercent">0%</span><span id="progressEta"></span></div>
+        <div class="patience hidden" id="patience"></div>
+      </div>
+    </div>
+    <ol class="steps" id="steps"></ol>
+    <ul class="file-progress hidden" id="fileProgress"></ul>
   </div>
 
   <div id="resultsSection" class="section hidden">
-    <h2>Matters found</h2>
+    <h2>Your report</h2>
     <div id="matterCards"></div>
     <div id="unclassifiedBox" class="unclassified-box hidden"></div>
   </div>
@@ -152,14 +253,24 @@ button.primary:not(:disabled):hover{opacity:.92;}
   </div>
 </div>
 
+<script src="/assets/progress.js"></script>
 <script>
+// Adds the CSRF header the server requires on writes, and sends an expired
+// session back to the login page instead of failing silently.
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: { ...(options.headers || {}), 'X-Requested-With': 'fetch' } });
+  if (res.status === 401) {
+    location.href = '/login';
+    throw new Error('Your session has ended — please sign in again.');
+  }
+  return res;
+}
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const fileListEl = document.getElementById('fileList');
 const runBtn = document.getElementById('runBtn');
 const runHint = document.getElementById('runHint');
 const progressSection = document.getElementById('progressSection');
-const progressList = document.getElementById('progressList');
 const resultsSection = document.getElementById('resultsSection');
 const matterCards = document.getElementById('matterCards');
 const unclassifiedBox = document.getElementById('unclassifiedBox');
@@ -212,30 +323,149 @@ fileInput.addEventListener('change', () => addFiles(fileInput.files));
 // Filenames, labels and model-written reasoning all reach innerHTML below.
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function stageLabel(stage) {
-  return {
-    queued: 'Queued', uploading: 'Uploading', classifying: 'Classifying',
-    classified: 'Classified', extracting: 'Extracting', extracted: 'Extracted',
-    done: 'Done', error: 'Error',
-  }[stage] || stage;
+const P = window.IntakeProgress;
+const progressCard = document.getElementById('progressCard');
+const stepsEl = document.getElementById('steps');
+const fileProgressEl = document.getElementById('fileProgress');
+
+let lastState = null;
+let clockSkewMs = 0;   // server clock minus browser clock
+let shownPercent = 0;  // the bar only ever moves forward
+let tickTimer = null;
+
+const SUBTITLES = {
+  uploading: 'Sending the scan securely for reading.',
+  classifying: 'Working out what kind of document this is.',
+  extracting: 'Names, survey numbers, extents and dates.',
+  checking: 'Comparing the readings and checking for gaps.',
+};
+const TITLES = {
+  uploading: 'Uploading', classifying: 'Identifying', extracting: 'Reading', checking: 'Double-checking',
+};
+
+const serverNow = () => Date.now() + clockSkewMs;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function stepsFor(file, state) {
+  const idx = file ? P.STEPS.findIndex((s) => s.id === file.stage) : -1;
+  const status = (i) => {
+    if (!file || file.stage === 'queued') return 'pending';
+    if (file.stage === 'error') return i < Math.max(idx, 0) ? 'done' : (i === 0 ? 'failed' : 'pending');
+    if (file.stage === 'done' || i < idx) return 'done';
+    return i === idx ? 'active' : 'pending';
+  };
+  const runsNote = file && file.runsTotal > 1
+    ? (status(2) === 'active' ? `Reading twice to cross-check · ${file.runsDone} of ${file.runsTotal} done` : 'Read twice and cross-checked')
+    : '';
+  const rows = [
+    { label: status(0) === 'done' ? 'Uploaded' : 'Uploading securely', note: file && file.pages ? `${plural(file.pages, 'page')}` : '', st: status(0) },
+    { label: status(1) === 'done' ? (file.documentTypeLabel ? `Identified: ${file.documentTypeLabel}` : 'Identified') : 'Identifying the document', note: '', st: status(1) },
+    { label: status(2) === 'done' ? 'Deed read' : 'Reading the deed', note: runsNote || (status(2) === 'active' ? 'the longest step' : ''), st: status(2) },
+    { label: status(3) === 'done' ? 'Details checked' : 'Double-checking the details', note: '', st: status(3) },
+  ];
+  const finishing = state.status === 'done' ? 'done' : state.phase === 'finishing' ? 'active' : 'pending';
+  rows.push({ label: finishing === 'done' ? 'Report drafted' : 'Drafting the report', note: finishing === 'active' ? 'building the title chain' : '', st: finishing });
+  return rows;
 }
 
-function renderProgress(job) {
-  progressList.innerHTML = '';
-  job.files.forEach((f) => {
-    const li = document.createElement('li');
-    li.className = 'progress-row';
-    const detailParts = [];
-    if (f.documentType) detailParts.push(f.documentType.replace(/_/g, ' ') + (f.confidence ? ' · ' + f.confidence : ''));
-    if (typeof f.warnings === 'number') detailParts.push(`${f.warnings} warning(s)`);
-    if (f.error) detailParts.push(f.error);
-    li.innerHTML = `<span class="name">${esc(f.label)}</span><span class="detail">${esc(detailParts.join(' · '))}</span><span class="stage-badge ${f.stage}">${stageLabel(f.stage)}</span>`;
-    progressList.appendChild(li);
-  });
+function renderSteps(file, state) {
+  const html = stepsFor(file, state).map((r) =>
+    `<li class="step ${r.st}"><span class="dot"></span><span>${esc(r.label)}</span>${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</li>`).join('');
+  if (stepsEl.dataset.html !== html) { stepsEl.innerHTML = html; stepsEl.dataset.html = html; }
+}
+
+function fileStatusText(f, nowMs) {
+  if (f.stage === 'queued') return 'Waiting';
+  if (f.stage === 'error') return 'Couldn’t read this file — try uploading it again';
+  if (f.stage === 'done') return f.documentTypeLabel ? `Done · ${f.documentTypeLabel}` : 'Done';
+  return `${P.STEPS.find((s) => s.id === f.stage)?.label || 'Working'}…`;
+}
+
+function renderFiles(state, nowMs) {
+  const files = state.files || [];
+  fileProgressEl.classList.toggle('hidden', files.length < 2);
+  if (files.length < 2) return;
+  fileProgressEl.innerHTML = files.map((f) => {
+    const pct = Math.round(100 * P.fileProgress(f, nowMs).fraction);
+    const cls = f.stage === 'done' ? 'done' : f.stage === 'error' ? 'error' : '';
+    return `<li class="${cls}"><span class="fname">${esc(f.label)}</span><span class="mini"><div style="width:${pct}%"></div></span><span class="fstatus">${esc(fileStatusText(f, nowMs))}</span></li>`;
+  }).join('');
+}
+
+function setBar(percent) {
+  shownPercent = Math.max(shownPercent, percent);
+  document.getElementById('barFill').style.width = `${shownPercent}%`;
+  document.getElementById('bar').setAttribute('aria-valuenow', String(shownPercent));
+  document.getElementById('progressPercent').textContent = `${shownPercent}%`;
+}
+
+// Redrawn several times a second between polls so the bar and the time left
+// keep moving smoothly, not in 1.5-second jumps.
+function tick() {
+  const state = lastState;
+  if (!state || !state.files) return;
+  const nowMs = serverNow();
+  const files = state.files;
+  const overall = P.overallProgress(state, nowMs);
+  const titleEl = document.getElementById('progressTitle');
+  const subEl = document.getElementById('progressSubtitle');
+  const patienceEl = document.getElementById('patience');
+
+  progressCard.classList.toggle('is-done', state.status === 'done');
+  progressCard.classList.toggle('is-error', state.status === 'error');
+
+  if (state.status === 'done') {
+    setBar(100);
+    const failed = files.filter((f) => f.stage === 'error').length;
+    titleEl.textContent = failed ? 'Report ready, with problems' : 'Report ready';
+    const toCheck = (state.matters || []).reduce((n, m) => n + (m.documentsToCheck || 0), 0);
+    subEl.textContent = [
+      plural(files.length - failed, 'document') + ' processed',
+      failed ? `${failed} couldn’t be read` : null,
+      toCheck ? `${plural(toCheck, 'document')} to check` : 'nothing flagged',
+    ].filter(Boolean).join(' · ');
+    document.getElementById('progressEta').textContent = '';
+    patienceEl.classList.add('hidden');
+    renderSteps(files[files.length - 1], state);
+    renderFiles(state, nowMs);
+    return;
+  }
+  if (state.status === 'error') {
+    titleEl.textContent = 'Something went wrong';
+    subEl.textContent = state.error || 'Please try again.';
+    document.getElementById('progressEta').textContent = '';
+    patienceEl.classList.add('hidden');
+    renderFiles(state, nowMs);
+    return;
+  }
+
+  setBar(overall.percent);
+  document.getElementById('progressEta').textContent = P.formatRemaining(overall.remaining);
+  const active = overall.active;
+  const position = active && files.length > 1 ? ` (${files.indexOf(active) + 1} of ${files.length})` : '';
+  if (state.phase === 'finishing') {
+    titleEl.textContent = 'Drafting the report';
+    subEl.textContent = 'Building the title chain across all documents.';
+  } else if (active) {
+    titleEl.textContent = `${TITLES[active.stage] || 'Working on'} ${active.label}${position}`;
+    subEl.textContent = SUBTITLES[active.stage] || '';
+  } else {
+    titleEl.textContent = 'Getting started';
+    subEl.textContent = 'Preparing your documents.';
+  }
+  const note = P.patienceNote(active, nowMs);
+  patienceEl.textContent = note;
+  patienceEl.classList.toggle('hidden', !note);
+  renderSteps(active || files.find((f) => f.stage === 'queued') || files[files.length - 1], state);
+  renderFiles(state, nowMs);
 }
 
 function renderResults(state) {
   matterCards.innerHTML = '';
+  const when = state.finishedAt ? new Date(state.finishedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  if (state.startedBy) {
+    matterCards.insertAdjacentHTML('beforeend', `<p class="last-run">Run by ${esc(state.startedBy)}${when ? ` · ${esc(when)}` : ''}</p>`);
+  }
   (state.matters || []).forEach((m) => {
     const card = document.createElement('div');
     card.className = 'matter-card';
@@ -243,13 +473,14 @@ function renderResults(state) {
       <h3>${esc(m.matterId)}</h3>
       <div class="matter-stats">
         <span><b>${m.documentCount}</b> document(s)</span>
-        <span>chain <b>${m.chainSpan}</b></span>
-        <span>35-yr rule: <b>${m.meetsThirtyFiveYearRule ? 'Met' : 'Not met'}</b></span>
+        <span>title chain <b>${esc(m.chainSpan)}</b></span>
+        <span>35-year history: <b>${m.meetsThirtyFiveYearRule ? 'Covered' : 'Not covered'}</b></span>
+        <span><b>${m.documentsToCheck ?? 0}</b> to check</span>
         <span><b>${m.surveyConflicts}</b> survey conflict(s)</span>
         <span><b>${m.encumbrances}</b> encumbrance(s)</span>
       </div>
       <div class="matter-actions">
-        <a class="btn accent" href="/review" target="_blank" rel="noopener">View review</a>
+        <a class="btn accent" href="/review" target="_blank" rel="noopener">Open review</a>
         <a class="btn" href="/reports/${encodeURIComponent(m.matterId)}.docx">Download report (.docx)</a>
       </div>`;
     matterCards.appendChild(card);
@@ -257,71 +488,110 @@ function renderResults(state) {
 
   if (state.unclassified && state.unclassified.length) {
     unclassifiedBox.classList.remove('hidden');
-    unclassifiedBox.innerHTML = `<b>${state.unclassified.length} document(s) unclassified</b> — no matching type in the Schema Registry:<br>` +
+    unclassifiedBox.innerHTML = `<b>${state.unclassified.length} document(s) not recognised</b> — these aren’t one of the document types below, so they were left out of the report:<br>` +
       state.unclassified.map((u) => esc(u.label + (u.reasoning ? ' — ' + u.reasoning : ''))).join('<br>');
   } else {
     unclassifiedBox.classList.add('hidden');
   }
-
   resultsSection.classList.remove('hidden');
 }
 
-async function poll() {
-  let state;
-  try {
-    const res = await fetch('/api/status');
-    state = await res.json();
-  } catch {
-    return; // transient network blip or server restart — the next tick retries
-  }
-  renderProgress(state);
+function stopTracking() {
+  clearInterval(pollTimer);
+  clearInterval(tickTimer);
+  pollTimer = null;
+  tickTimer = null;
+  runBtn.disabled = selectedFiles.length === 0;
+  runBtn.textContent = 'Process documents';
+}
 
-  if (state.status === 'done') {
-    clearInterval(pollTimer);
-    runBtn.disabled = false;
-    runBtn.textContent = 'Run pipeline';
-    renderResults(state);
-  } else if (state.status === 'error') {
-    clearInterval(pollTimer);
-    runBtn.disabled = false;
-    runBtn.textContent = 'Run pipeline';
-    errorSection.classList.remove('hidden');
-    errorBox.textContent = state.error || 'Something went wrong.';
+function applyState(state) {
+  lastState = state;
+  if (state.now) clockSkewMs = Date.parse(state.now) - Date.now();
+  tick();
+  if (state.status === 'done') { stopTracking(); renderResults(state); }
+  if (state.status === 'error') { stopTracking(); }
+}
+
+async function poll() {
+  try {
+    const res = await apiFetch('/api/status');
+    applyState(await res.json());
+  } catch {
+    // transient network blip or a sleeping server waking up — the next poll retries
   }
+}
+
+function startTracking() {
+  progressSection.classList.remove('hidden');
+  runBtn.disabled = true;
+  runBtn.textContent = 'Processing…';
+  clearInterval(pollTimer);
+  clearInterval(tickTimer);
+  pollTimer = setInterval(poll, 1500);
+  tickTimer = setInterval(tick, 250);
+  poll();
 }
 
 runBtn.addEventListener('click', async () => {
   if (!selectedFiles.length) return;
-  runBtn.disabled = true;
-  runBtn.textContent = 'Running…';
   resultsSection.classList.add('hidden');
   errorSection.classList.add('hidden');
+  shownPercent = 0;
+  lastState = { status: 'running', phase: 'documents', files: selectedFiles.map((f) => ({ label: f.name.replace(/\.pdf$/i, ''), stage: 'queued', expected: {} })) };
   progressSection.classList.remove('hidden');
-  progressList.innerHTML = selectedFiles.map((f) => `<li class="progress-row"><span class="name">${esc(f.name)}</span><span class="detail"></span><span class="stage-badge queued">Queued</span></li>`).join('');
+  progressCard.classList.remove('is-done', 'is-error');
+  setBar(0);
+  tick();
+  document.getElementById('progressTitle').textContent = 'Uploading your documents';
+  runBtn.disabled = true;
+  runBtn.textContent = 'Processing…';
 
   const formData = new FormData();
   selectedFiles.forEach((f) => formData.append('files', f));
-
   try {
-    const res = await fetch('/api/run', { method: 'POST', body: formData });
+    const res = await apiFetch('/api/run', { method: 'POST', body: formData });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `Upload failed (${res.status})`);
     }
-    pollTimer = setInterval(poll, 1500);
-    poll();
+    selectedFiles = [];
+    renderFileList();
+    startTracking();
   } catch (err) {
-    runBtn.disabled = false;
-    runBtn.textContent = 'Run pipeline';
+    stopTracking();
+    progressSection.classList.add('hidden');
     errorSection.classList.remove('hidden');
     errorBox.textContent = err.message;
   }
 });
 
-fetch('/api/registry').then((r) => r.json()).then((types) => {
-  document.getElementById('registryList').innerHTML =
-    types.map((t) => `<span class="registry-chip" title="${t.description.replace(/"/g, '&quot;')}">${t.label}</span>`).join('');
+// Pick up where we left off: a run keeps going on the server even if this
+// page is refreshed or closed, so show it (or its result) on load.
+apiFetch('/api/status').then((r) => r.json()).then((state) => {
+  if (state.status === 'running') {
+    lastState = state;
+    startTracking();
+  } else if (state.status === 'done' || state.status === 'error') {
+    progressSection.classList.remove('hidden');
+    applyState(state);
+  }
 }).catch(() => {});
+
+apiFetch('/api/registry').then((r) => r.json()).then((types) => {
+  document.getElementById('registryList').innerHTML =
+    types.map((t) => `<span class="registry-chip" title="${esc(t.description)}">${esc(t.label)}</span>`).join('');
+}).catch(() => {});
+
+apiFetch('/api/auth/me').then((r) => r.json()).then(({ user }) => {
+  document.getElementById('me').textContent = user.username;
+  if (user.role === 'admin') document.getElementById('adminLink').classList.remove('hidden');
+}).catch(() => {});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  location.href = '/login';
+});
 </script>
 </body>
 </html>

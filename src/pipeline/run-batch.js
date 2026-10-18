@@ -11,12 +11,13 @@ const { buildReportData } = require('./report-data');
 const { generateReportFile } = require('./generate-report');
 const { generateReviewHtml } = require('./review-html');
 
-async function processBatch(entries, { outputDir, onProgress } = {}) {
+async function processBatch(entries, { outputDir, onProgress, onPhase = () => {} } = {}) {
   const extractionsDir = path.join(outputDir, 'extractions');
   fs.mkdirSync(extractionsDir, { recursive: true });
 
   const results = await runOnFiles(entries, { outputDir: extractionsDir, onProgress });
 
+  onPhase('finishing'); // title chain, report and review page
   const records = loadExtractionRecords(extractionsDir);
   const { matters, unclassified } = buildMattersFromRecords(records);
 

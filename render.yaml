@@ -11,6 +11,20 @@ services:
         sync: false
       - key: NODE_VERSION
         value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      # Signs login cookies; Render generates a random value once.
+      - key: SESSION_SECRET
+        generateValue: true
+      # First admin account, created on first start if none exists.
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Postgres for user accounts (e.g. a free Neon database). Without it,
+      # accounts the admin creates are lost whenever the free instance restarts.
+      - key: DATABASE_URL
+        sync: false
     # Free-tier disk is ephemeral (wiped on every restart/redeploy) — that's
     # deliberate here: output/current/ is meant to hold only the most recent
     # upload and its generated report, never a history. No persistent disk

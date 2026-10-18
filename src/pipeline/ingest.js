@@ -10,8 +10,13 @@ const CONSENSUS_RUNS = Math.max(1, Number(process.env.CONSENSUS_RUNS) || 2);
 // Runs extraction CONSENSUS_RUNS times in parallel. A run that fails is
 // dropped (the document still extracts from the survivors, flagged as single-
 // run); only all runs failing is an error.
-async function extractWithConsensus(client, file, typeId) {
-  const settled = await Promise.allSettled(Array.from({ length: CONSENSUS_RUNS }, () => extractFields(client, file, typeId)));
+async function extractWithConsensus(client, file, typeId, progress = () => {}) {
+  let finished = 0;
+  const settled = await Promise.allSettled(Array.from({ length: CONSENSUS_RUNS }, () =>
+    extractFields(client, file, typeId).finally(() => {
+      finished += 1;
+      progress('extract-run-finished', { finished, total: CONSENSUS_RUNS });
+    })));
   const runs = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
   if (runs.length === 0) throw settled[0].reason;
   const { merged, disagreements } = mergeRuns(runs);
@@ -52,8 +57,9 @@ async function runOnFile(filePath, { ai, label, outputDir = OUTPUT_DIR, onProgre
   let consensus = null;
 
   if (classification.documentType !== 'UNCLASSIFIED') {
-    progress('extracting');
-    ({ extraction, consensus } = await extractWithConsensus(client, file, classification.documentType));
+    progress('extracting', { runsTotal: CONSENSUS_RUNS });
+    ({ extraction, consensus } = await extractWithConsensus(client, file, classification.documentType, progress));
+    progress('checking');
     validation = validateExtraction(extraction);
     progress('extracted', { validation });
   }

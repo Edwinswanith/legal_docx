@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users — Title Scrutiny</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Title Scrutiny</a>
+  <a href="/">Document intake</a>
+  <span class="who">Signed in as <b id="me">…</b></span>
+  <button class="linkbtn" id="logoutBtn" type="button">Sign out</button>
+</header>
+
+<main class="page">
+  <h1>Users</h1>
+  <p class="sub">Create accounts, reset passwords and remove access. A password reset or deletion signs that person out immediately.</p>
+
+  <div class="alert hidden" id="notice" role="status"></div>
+
+  <h2>Create a user</h2>
+  <form id="createForm" class="create-grid" novalidate>
+    <div>
+      <label for="newUsername">Username</label>
+      <input type="text" id="newUsername" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="e.g. priya.s" required>
+    </div>
+    <div>
+      <label for="newPassword">Password <span class="muted">(min 8)</span></label>
+      <div class="pw-row">
+        <input type="text" id="newPassword" autocomplete="new-password" spellcheck="false" required>
+        <button class="btn small" type="button" id="genBtn" title="Generate a strong password">Generate</button>
+      </div>
+    </div>
+    <div>
+      <label for="newRole">Role</label>
+      <select id="newRole">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="btn primary" type="submit" id="createBtn">Create user</button>
+  </form>
+
+  <h2>All users <span id="count" class="muted"></span></h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Username</th><th>Role</th><th class="optional">Created</th><th class="optional">Last sign-in</th><th></th></tr></thead>
+      <tbody id="userRows"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<dialog id="resetDialog">
+  <form method="dialog" id="resetForm" novalidate>
+    <h1 style="font-size:20px;">Reset password</h1>
+    <p class="sub" style="margin-bottom:16px;">New password for <b id="resetName"></b>. They'll be signed out and must use this one.</p>
+    <div class="alert error hidden" id="resetError" role="alert"></div>
+    <label for="resetPassword">New password <span class="muted">(min 8)</span></label>
+    <div class="pw-row">
+      <input type="text" id="resetPassword" autocomplete="new-password" spellcheck="false">
+      <button class="btn small" type="button" id="resetGenBtn">Generate</button>
+    </div>
+    <div class="buttons">
+      <button class="btn" value="cancel" type="button" id="resetCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="resetSubmit">Set password</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="doneDialog">
+  <h1 style="font-size:20px;" id="doneTitle"></h1>
+  <p class="sub" style="margin:4px 0 0;">Share these with the user now — the password isn't shown again.</p>
+  <div class="secret"><code id="doneCreds"></code><button class="btn small" type="button" id="copyBtn">Copy</button></div>
+  <div class="buttons"><button class="btn primary" type="button" id="doneClose">Done</button></div>
+</dialog>
+
+<script>
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+let me = null;
+let users = [];
+
+// Every call goes through here: adds the CSRF header and sends an expired
+// session back to the login page.
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { 'X-Requested-With': 'fetch', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { location.href = '/login?next=/admin'; throw new Error('Signed out'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+function notice(message, kind = 'ok') {
+  const box = document.getElementById('notice');
+  box.className = `alert ${kind}`;
+  box.textContent = message;
+  clearTimeout(notice.timer);
+  notice.timer = setTimeout(() => box.classList.add('hidden'), 6000);
+}
+
+// 16 chars from an unambiguous alphabet, via the browser's CSPRNG.
+function generatePassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint32Array(16));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+}
+
+function showCredentials(title, username, password) {
+  document.getElementById('doneTitle').textContent = title;
+  document.getElementById('doneCreds').textContent = `Username: ${username}\nPassword: ${password}`;
+  document.getElementById('doneDialog').showModal();
+}
+
+function render() {
+  document.getElementById('count').textContent = `(${users.length})`;
+  const rows = users.map((u) => {
+    const self = me && u.id === me.id;
+    return `<tr>
+      <td><b>${esc(u.username)}</b>${self ? '<span class="badge you">you</span>' : ''}</td>
+      <td><span class="badge ${u.role === 'admin' ? 'admin' : 'user'}">${esc(u.role)}</span></td>
+      <td class="optional muted">${esc(fmt(u.createdAt))}</td>
+      <td class="optional muted">${esc(fmt(u.lastLoginAt))}</td>
+      <td class="actions">
+        <button class="btn small" data-action="reset" data-id="${esc(u.id)}">Reset password</button>
+        ${self ? '' : `<button class="btn small danger" data-action="delete" data-id="${esc(u.id)}">Delete</button>`}
+      </td>
+    </tr>`;
+  });
+  document.getElementById('userRows').innerHTML = rows.join('') || '<tr><td colspan="5" class="muted">No users.</td></tr>';
+}
+
+async function load() {
+  try {
+    const data = await api('GET', '/api/admin/users');
+    users = data.users;
+    render();
+  } catch (err) {
+    if (err.message !== 'Signed out') notice(err.message, 'error');
+  }
+}
+
+// --- create ------------------------------------------------------------------
+const createForm = document.getElementById('createForm');
+document.getElementById('genBtn').addEventListener('click', () => {
+  document.getElementById('newPassword').value = generatePassword();
+});
+createForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
+  if (!username || !password) return notice('Enter a username and password.', 'error');
+  const btn = document.getElementById('createBtn');
+  btn.disabled = true;
+  try {
+    const { user } = await api('POST', '/api/admin/users', { username, password, role });
+    createForm.reset();
+    await load();
+    showCredentials(`Created ${user.role} “${user.username}”`, user.username, password);
+  } catch (err) {
+    if (err.message !== 'Signed out') notice(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// --- reset / delete -------------------------------------------------------------
+const resetDialog = document.getElementById('resetDialog');
+let resetTarget = null;
+
+document.getElementById('userRows').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const user = users.find((u) => u.id === btn.dataset.id);
+  if (!user) return;
+
+  if (btn.dataset.action === 'reset') {
+    resetTarget = user;
+    document.getElementById('resetName').textContent = user.username;
+    document.getElementById('resetPassword').value = '';
+    document.getElementById('resetError').classList.add('hidden');
+    resetDialog.showModal();
+    document.getElementById('resetPassword').focus();
+  }
+
+  if (btn.dataset.action === 'delete') {
+    if (!confirm(`Delete “${user.username}”? They lose access immediately. This can't be undone.`)) return;
+    try {
+      await api('DELETE', `/api/admin/users/${encodeURIComponent(user.id)}`);
+      notice(`Deleted “${user.username}”.`);
+      await load();
+    } catch (err) {
+      if (err.message !== 'Signed out') notice(err.message, 'error');
+    }
+  }
+});
+
+document.getElementById('resetGenBtn').addEventListener('click', () => {
+  document.getElementById('resetPassword').value = generatePassword();
+});
+document.getElementById('resetCancel').addEventListener('click', () => resetDialog.close());
+document.getElementById('resetForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('resetPassword').value;
+  const errBox = document.getElementById('resetError');
+  const submit = document.getElementById('resetSubmit');
+  submit.disabled = true;
+  try {
+    await api('PUT', `/api/admin/users/${encodeURIComponent(resetTarget.id)}/password`, { password });
+    resetDialog.close();
+    await load();
+    showCredentials(`New password for “${resetTarget.username}”`, resetTarget.username, password);
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.remove('hidden');
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+// --- credentials dialog -----------------------------------------------------------
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('doneCreds').textContent);
+    document.getElementById('copyBtn').textContent = 'Copied';
+  } catch {
+    document.getElementById('copyBtn').textContent = 'Copy failed — select manually';
+  }
+});
+document.getElementById('doneClose').addEventListener('click', () => {
+  document.getElementById('doneDialog').close();
+  document.getElementById('doneCreds').textContent = '';
+  document.getElementById('copyBtn').textContent = 'Copy';
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await api('POST', '/api/auth/logout').catch(() => {});
+  location.href = '/login';
+});
+
+api('GET', '/api/auth/me').then(({ user }) => {
+  me = user;
+  document.getElementById('me').textContent = user.username;
+  load();
+}).catch(() => {});
+</script>
+</body>
+</html>

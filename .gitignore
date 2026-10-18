@@ -22,3 +22,6 @@ output/accuracy-report.json
 gold/
 output/gold-report.json
 output/benchmark-*.json
+
+# Local user accounts (password hashes)
+data/

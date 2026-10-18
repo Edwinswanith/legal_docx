@@ -20,6 +20,10 @@
     "@google/genai": "^2.21.0",
     "docx": "^9.7.1",
     "express": "^5.2.1",
-    "multer": "^2.3.0"
+    "multer": "^2.3.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "pg-mem": "^3.0.14"
   }
 }
