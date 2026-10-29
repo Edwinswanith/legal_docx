@@ -4,15 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in — Title Scrutiny</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>try{if(localStorage.getItem('ts-theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<main class="login-wrap">
-  <form class="card" id="loginForm" novalidate>
-    <h1>Title Scrutiny</h1>
-    <p class="sub">Sign in to upload documents and review reports.</p>
-    <div class="alert error hidden" id="error" role="alert"></div>
+<main class="auth-wrap">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">TS</span>Title Scrutiny</div>
+  <form class="panel auth-card" id="loginForm" novalidate>
+    <h1>Sign in</h1>
+    <p class="lede">Upload title documents and review scrutiny reports.</p>
+    <div class="alert alert-error hidden" id="error" role="alert"></div>
     <div class="field">
       <label for="username">Username</label>
       <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
@@ -21,8 +23,8 @@
       <label for="password">Password</label>
       <input type="password" id="password" name="password" autocomplete="current-password" required>
     </div>
-    <button class="btn primary" type="submit" id="submitBtn">Sign in</button>
-    <p class="muted" style="font-size:12.5px;margin:16px 0 0;">No account? Ask your administrator to create one.</p>
+    <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Sign in</button>
+    <p class="auth-foot">No account? Ask your administrator to create one.</p>
   </form>
 </main>
 <script>

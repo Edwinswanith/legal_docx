@@ -5,111 +5,225 @@
 // persistence of edits) — the honest scope for this phase; an editable
 // workbench needs a backend and storage decision that hasn't been made yet
 // (see the architecture plan's open questions).
+//
+// The page leads with what needs the reviewer's attention, then the title
+// chain, parties, survey/extent, encumbrances and the per-document detail.
+// Styles and scripts come from public/assets and are inlined, so the file
+// also works when opened straight from disk after a CLI run.
+
+const fs = require('fs');
+const path = require('path');
+
+const ASSETS_DIR = path.join(__dirname, '..', '..', 'public', 'assets');
+const asset = (name) => fs.readFileSync(path.join(ASSETS_DIR, name), 'utf8');
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function badge(text, tone) {
-  return `<span class="badge ${tone}">${esc(text)}</span>`;
+const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+
+function badge(text, tone = '') {
+  return `<span class="badge${tone ? ` badge-${tone}` : ''}">${esc(text)}</span>`;
 }
 
-function statTile(label, value, tone = '') {
-  return `<div class="stat ${tone}"><div class="stat-value">${esc(value)}</div><div class="stat-label">${esc(label)}</div></div>`;
+// "GENERAL_POWER_OF_ATTORNEY" / "GIFT DEED" -> "General power of attorney"
+function sentenceCase(v) {
+  const s = String(v ?? '').replace(/_/g, ' ').trim().toLowerCase();
+  return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
 
-// Opens the uploaded scan at the cited page (served by server.js /files/:name).
-// Falls back to plain text for CLI runs, where there is no server to link to.
+// Readable names for extraction paths such as parties[2].aadhaarNumber.
+const FIELD_NAMES = {
+  oldSurveyNumber: 'old survey no.', newSurveyNumber: 'new survey no.', extentValue: 'extent', extentUnit: 'extent unit',
+  fullName: 'name', panNumber: 'PAN', aadhaarNumber: 'Aadhaar', village: 'village', role: 'role',
+  documentNumber: 'document no.', documentYear: 'document year', executionDate: 'execution date',
+  stampDutyPaid: 'stamp duty', considerationAmount: 'consideration', poaDocumentNumber: 'power of attorney no.',
+};
+const GROUP_NAMES = { parties: 'Party', propertySchedules: 'Schedule' };
+// Containers that add nothing to the label ("stamp.stampDutyPaid" is "stamp duty").
+const SILENT_PARTS = new Set(['stamp', 'value', 'representedByPoa']);
+
+function fieldLabel(fieldPath) {
+  const parts = String(fieldPath ?? '').split('.').filter(Boolean);
+  const kept = parts.length > 1 ? parts.filter((part) => !SILENT_PARTS.has(part)) : parts;
+  const words = (kept.length ? kept : parts).map((part) => {
+    const m = part.match(/^(\w+)\[(\d+)\]$/);
+    if (m) return `${GROUP_NAMES[m[1]] || sentenceCase(m[1].replace(/([A-Z])/g, ' $1'))} ${Number(m[2]) + 1}`;
+    return FIELD_NAMES[part] || part.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+  });
+  if (words.length === 1 && /^(Party|Schedule) \d+$/.test(words[0])) words.push('whole entry');
+  const text = words.join(' · ');
+  return text ? text[0].toUpperCase() + text.slice(1) : '';
+}
+
+// Warnings name fields by their extraction path; show the readable label.
+const readablePaths = (text) => String(text ?? '').replace(/\b(?:parties|propertySchedules)\[\d+\](?:\.\w+)*/g, (p) => fieldLabel(p).replace(' · whole entry', ''));
+
+// The "N fields differed" warning repeats the Fields to check table, which
+// the review page already shows (the .docx report still needs it).
+const reviewWarnings = (doc) => doc.warnings.filter((w) => !/differed between independent extraction runs/.test(w)).map(readablePaths);
+
+const fileName = (doc) => String(doc.sourceFile).split(/[\\/]/).pop();
+
+// Opens the uploaded scan at the cited page (served by server.js /files/:name)
+// in the side panel. Falls back to plain text for CLI runs, where there is no
+// server to link to.
 function pageLink(doc, page) {
-  const label = `p.${esc(page ?? '?')}`;
+  const label = `p. ${esc(page ?? '?')}`;
   const n = Number.parseInt(page, 10);
   if (!doc.sourceFile || !Number.isInteger(n)) return label;
-  const name = encodeURIComponent(String(doc.sourceFile).split(/[\\/]/).pop());
-  return `<a class="pagelink" href="/files/${name}#page=${n}" target="_blank" rel="noopener">${label} ↗</a>`;
-}
-
-const KIND_LABEL = { conflict: 'runs disagree', omitted: 'missing in one run', 'item-in-one-run': 'entry in one run only' };
-
-// Maps a consensus path like parties[2].aadhaarNumber to a citation page when
-// the extraction recorded one for that exact field.
-function flaggedFieldsTable(doc) {
-  const rows = doc.consensus?.disagreements || [];
-  if (!rows.length) return '';
-  const show = (v) => (v == null ? '<span class="muted">not found</span>' : esc(v));
-  return `<h4>Flagged fields <span class="muted">(two independent extractions did not agree — check the scan)</span></h4>
-      <div class="table-wrap"><table class="flagged">
-        <thead><tr><th>Field</th><th>Issue</th><th>Run A</th><th>Run B</th><th>Scan</th></tr></thead>
-        <tbody>${rows.map((d) => {
-          const cite = doc.citations.find((c) => c.field === d.path);
-          return `<tr><td><code>${esc(d.path)}</code></td><td>${badge(KIND_LABEL[d.kind] || d.kind, d.kind === 'conflict' ? 'bad' : 'warn')}</td><td>${show(d.values[0])}</td><td>${show(d.values[1])}</td><td>${cite ? pageLink(doc, cite.page) : scanLink(doc)}</td></tr>`;
-        }).join('')}</tbody>
-      </table></div>`;
+  const href = `/files/${encodeURIComponent(fileName(doc))}#page=${n}`;
+  return `<a class="pagelink" href="${esc(href)}" data-scan="${esc(`${doc.label} — page ${n}`)}" target="_blank" rel="noopener">${label}</a>`;
 }
 
 // For flagged fields with no recorded citation we can't know the page, so link
 // the scan itself rather than pointing at a page 1 that may be wrong.
-function scanLink(doc) {
+function scanLink(doc, text = 'Open scan') {
   if (!doc.sourceFile) return '<span class="muted">—</span>';
-  const name = encodeURIComponent(String(doc.sourceFile).split(/[\\/]/).pop());
-  return `<a class="pagelink" href="/files/${name}" target="_blank" rel="noopener">open ↗</a>`;
+  const href = `/files/${encodeURIComponent(fileName(doc))}`;
+  return `<a class="pagelink" href="${esc(href)}" data-scan="${esc(doc.label)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 }
 
-function documentCard(doc) {
-  const flagged = doc.confidence !== 'HIGH' || doc.warnings.length || doc.errors.length;
+const KIND_LABEL = { conflict: 'Readings disagree', omitted: 'Missing in one reading', 'item-in-one-run': 'Found in one reading only' };
+
+const docAnchor = (matterIdx, docIdx) => `m${matterIdx}-doc-${docIdx}`;
+const docFlagged = (doc) => doc.confidence !== 'HIGH' || reviewWarnings(doc).length > 0 || doc.errors.length > 0
+  || (doc.consensus?.disagreements?.length || 0) > 0;
+
+// Everything the reviewer must look at before issuing the report, worst first.
+function attentionItems(matter, matterIdx) {
+  const items = [];
+  const sec = (name) => `#m${matterIdx}-${name}`;
+  const chain = matter.titleChain;
+
+  if (!chain.meetsThirtyFiveYearRule) {
+    items.push({ sev: 'danger', title: '35-year title history not covered', detail: `The documents trace the title from ${chain.earliestYear ?? '?'} to ${chain.latestYear ?? '?'}.`, href: sec('chain') });
+  }
+  matter.surveyExtent.parcels.filter((p) => !p.extentConsistent).forEach((p) => {
+    items.push({ sev: 'danger', title: `Extent differs for survey no. ${p.oldSurveyNumber || p.newSurveyNumber || '—'}`, detail: extentSeen(p), href: sec('survey') });
+  });
+  matter.identities.clusters.filter((c) => c.panConflict || c.aadhaarConflict).forEach((c) => {
+    items.push({ sev: 'danger', title: `Conflicting ${c.panConflict ? 'PAN' : 'Aadhaar'} for ${c.canonicalName}`, detail: 'Different numbers appear for the same person across documents.', href: sec('parties') });
+  });
+  matter.documents.forEach((doc, i) => {
+    const anchor = docAnchor(matterIdx, i);
+    doc.errors.forEach((e) => items.push({ sev: 'danger', title: doc.label, detail: readablePaths(e), href: `#${anchor}`, open: anchor }));
+    const disagreements = doc.consensus?.disagreements || [];
+    if (disagreements.length) {
+      const fields = [...new Set(disagreements.map((d) => fieldLabel(d.path)))];
+      items.push({
+        sev: 'warn',
+        title: `${doc.label}: ${plural(disagreements.length, 'field')} to check against the scan`,
+        detail: fields.slice(0, 4).join(', ') + (fields.length > 4 ? ` and ${fields.length - 4} more` : ''),
+        href: `#${anchor}`, open: anchor,
+      });
+    }
+    if (doc.confidence !== 'HIGH') {
+      items.push({ sev: 'warn', title: `${doc.label}: document type uncertain`, detail: `Identified as ${sentenceCase(doc.registryType)} with ${String(doc.confidence).toLowerCase()} confidence.`, href: `#${anchor}`, open: anchor });
+    }
+    reviewWarnings(doc).forEach((w) => items.push({ sev: 'warn', title: doc.label, detail: w, href: `#${anchor}`, open: anchor }));
+  });
+  if (chain.unverifiedLinks.length) {
+    const list = chain.unverifiedLinks.map((l) => `${l.year ?? '?'} ${l.documentType || 'deed'} (${l.key})`);
+    items.push({ sev: 'warn', title: `${plural(chain.unverifiedLinks.length, 'earlier deed')} referred to but not uploaded`, detail: list.join(', '), href: sec('chain') });
+  }
+  const dupes = matter.summary.possibleDuplicateIdentityCount || 0;
+  if (dupes) {
+    items.push({ sev: 'warn', title: `${plural(dupes, 'possible duplicate person', 'possible duplicate people')}`, detail: 'Similar names that may be the same person — confirm in the parties table.', href: sec('parties') });
+  }
+  return items;
+}
+
+function attentionSection(items) {
+  const rows = items.map((it) => `
+      <li>
+        <span class="sev">${it.sev === 'danger' ? badge('Problem', 'danger') : badge('Verify', 'warn')}</span>
+        <span class="what"><b>${esc(it.title)}</b>${it.detail ? `<span class="detail">${esc(it.detail)}</span>` : ''}</span>
+        <a class="go" href="${esc(it.href)}"${it.open ? ` data-open="${esc(it.open)}"` : ''}>View</a>
+      </li>`).join('');
+  return `<ul class="attention-list">${rows || '<li class="attention-empty">Nothing flagged. Still spot-check the key facts against the scans before issuing the report.</li>'}</ul>`;
+}
+
+// Long "executed by" lists collapse to the first two names.
+function names(text) {
+  const list = String(text ?? '').split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+  if (list.length <= 2) return esc(list.join(', ') || '—');
+  return `<details class="names"><summary>${esc(list.slice(0, 2).join(', '))} <span class="more">+ ${list.length - 2} more</span></summary><div class="rest">${esc(list.slice(2).join(', '))}</div></details>`;
+}
+
+function flaggedFieldsTable(doc) {
+  const rows = doc.consensus?.disagreements || [];
+  if (!rows.length) return '';
+  const show = (v) => (v == null ? '<span class="muted">not found</span>' : esc(v));
+  return `<h4>Fields to check <span class="hint">— two independent readings of the scan did not agree</span></h4>
+      <div class="table-wrap"><table class="data stack flag-table">
+        <thead><tr><th>Field</th><th>Issue</th><th>Reading 1</th><th>Reading 2</th><th>Source</th></tr></thead>
+        <tbody>${rows.map((d) => {
+          const cite = doc.citations.find((c) => c.field === d.path);
+          return `<tr class="${d.kind === 'conflict' ? 'has-problem' : 'needs-check'}"><td title="${esc(d.path)}">${esc(fieldLabel(d.path))}</td><td>${badge(KIND_LABEL[d.kind] || d.kind, d.kind === 'conflict' ? 'danger' : 'warn')}</td><td>${show(d.values[0])}</td><td>${show(d.values[1])}</td><td class="nowrap">${cite ? pageLink(doc, cite.page) : scanLink(doc)}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+}
+
+function documentCard(doc, matterIdx, docIdx) {
+  const flagged = docFlagged(doc);
+  const docNo = [doc.documentNumber, doc.documentYear].filter(Boolean).join('/') || '—';
   return `
-  <details class="doc-card${flagged ? ' flagged' : ''}">
+  <details class="doc-card${flagged ? ' flagged' : ''}" id="${docAnchor(matterIdx, docIdx)}">
     <summary>
       <span class="doc-title">${esc(doc.label)}</span>
-      ${badge(doc.registryType.replace(/_/g, ' '), 'type')}
-      ${badge(doc.confidence, doc.confidence === 'HIGH' ? 'ok' : 'warn')}
-      ${doc.errors.length ? badge(`${doc.errors.length} error(s)`, 'bad') : ''}
-      ${doc.warnings.length ? badge(`${doc.warnings.length} warning(s)`, 'warn') : ''}
-      <span class="doc-meta">Doc. No. ${esc(doc.documentNumber || '—')}/${esc(doc.documentYear || '—')} · ${esc(doc.executionDate || 'date not extracted')}</span>
+      <span class="doc-type">${esc(sentenceCase(doc.registryType))}</span>
+      ${flagged ? badge('Needs checking', 'warn') : badge('No issues', 'ok')}
+      <span class="doc-meta">Doc. no. ${esc(docNo)} · ${esc(doc.executionDate || 'date not found')}</span>
     </summary>
     <div class="doc-body">
       <div class="doc-grid">
         <div>
           <h4>Parties</h4>
-          <ul class="plain">
-            ${doc.parties.map((p) => `<li>${esc(p.role)}: <b>${esc(p.fullName)}</b>${p.panNumber ? ` · PAN ${esc(p.panNumber)}` : ''}${p.aadhaarNumber ? ` · Aadhaar ${esc(p.aadhaarNumber)}` : ''}</li>`).join('') || '<li class="muted">None extracted</li>'}
+          <ul class="kv">
+            ${doc.parties.map((p) => `<li><span class="role">${esc(sentenceCase(p.role))}</span>${esc(p.fullName)}${p.panNumber ? ` · PAN ${esc(p.panNumber)}` : ''}${p.aadhaarNumber ? ` · Aadhaar ${esc(p.aadhaarNumber)}` : ''}</li>`).join('') || '<li class="muted">None found</li>'}
           </ul>
         </div>
         <div>
           <h4>Property schedules</h4>
-          <ul class="plain">
-            ${doc.propertySchedules.map((s) => `<li>${esc(s.oldSurveyNumber || '—')} → ${esc(s.newSurveyNumber || '—')} · ${esc(s.extentValue || '?')} ${esc(s.extentUnit || '')}</li>`).join('') || '<li class="muted">None extracted</li>'}
+          <ul class="kv">
+            ${doc.propertySchedules.map((s, i) => `<li><span class="role">${esc(s.scheduleLabel || `Schedule ${i + 1}`)}</span>Survey no. ${esc(s.oldSurveyNumber || '—')} → ${esc(s.newSurveyNumber || '—')} · ${esc(s.extentValue || '?')} ${esc(s.extentUnit || '')}</li>`).join('') || '<li class="muted">None found</li>'}
           </ul>
         </div>
       </div>
       ${flaggedFieldsTable(doc)}
-      ${doc.errors.length ? `<h4>Errors</h4><ul class="flag-list bad">${doc.errors.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
-      ${doc.warnings.length ? `<h4>Warnings</h4><ul class="flag-list warn">${doc.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
-      <h4>Citations <span class="muted">(source page · quote)</span></h4>
-      <ul class="citations">
-        ${doc.citations.map((c) => `<li><code>${esc(c.field)}</code> — ${pageLink(doc, c.page)}: <span class="quote">&ldquo;${esc(c.quote)}&rdquo;</span></li>`).join('') || '<li class="muted">None extracted</li>'}
-      </ul>
+      ${doc.errors.length ? `<h4>Problems</h4><ul class="issue-list bad">${doc.errors.map((w) => `<li>${esc(readablePaths(w))}</li>`).join('')}</ul>` : ''}
+      ${reviewWarnings(doc).length ? `<h4>To verify</h4><ul class="issue-list warn">${reviewWarnings(doc).map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+      <details class="citations">
+        <summary>Source citations (${doc.citations.length}) · ${scanLink(doc, 'open full scan')}</summary>
+        <ul>
+          ${doc.citations.map((c) => `<li><span class="field">${esc(fieldLabel(c.field))}</span> · ${pageLink(doc, c.page)} — <span class="quote">“${esc(c.quote)}”</span></li>`).join('') || '<li class="muted">None recorded</li>'}
+        </ul>
+      </details>
     </div>
   </details>`;
 }
 
 function chainRow(e) {
-  return `<tr class="${e.uploaded ? '' : 'unverified'}">
-    <td class="num">${esc(e.year ?? '?')}</td>
-    <td>${esc(e.documentType || '[type not stated]')}</td>
-    <td><code>${esc(e.key)}</code></td>
-    <td>${esc(e.executedBy || '—')}</td>
-    <td>→ ${esc(e.inFavourOf || '—')}</td>
-    <td>${e.uploaded ? badge('uploaded', 'ok') : badge('referenced only', 'warn')}</td>
+  return `<tr class="${e.uploaded ? '' : 'needs-check'}">
+    <td class="nowrap">${esc(e.year ?? '?')}</td>
+    <td>${esc(sentenceCase(e.documentType) || 'Type not stated')}</td>
+    <td class="nowrap">${esc(e.key)}</td>
+    <td>${names(e.executedBy)}</td>
+    <td>${names(e.inFavourOf)}</td>
+    <td class="nowrap">${e.uploaded ? badge('Uploaded', 'ok') : badge('Not uploaded', 'warn')}</td>
   </tr>`;
 }
 
 function identityRow(c) {
-  return `<tr class="${c.panConflict || c.aadhaarConflict ? 'unverified' : ''}">
+  const conflict = c.panConflict || c.aadhaarConflict;
+  return `<tr class="${conflict ? 'has-problem' : ''}">
     <td>${esc(c.canonicalName)}</td>
-    <td>${[...new Set(c.mentions.map((m) => m.role))].map(esc).join(', ')}</td>
-    <td>${esc(c.pan || '—')}${c.panConflict ? ` ${badge('conflict', 'bad')}` : ''}</td>
-    <td>${esc(c.aadhaar || '—')}</td>
-    <td>${c.mentions.length}</td>
+    <td>${[...new Set(c.mentions.map((m) => sentenceCase(m.role)))].map(esc).join(', ')}</td>
+    <td class="nowrap">${esc(c.pan || '—')}${c.panConflict ? ` ${badge('Conflict', 'danger')}` : ''}</td>
+    <td class="nowrap">${esc(c.aadhaar || '—')}${c.aadhaarConflict ? ` ${badge('Conflict', 'danger')}` : ''}</td>
+    <td class="num">${c.mentions.length}</td>
   </tr>`;
 }
 
@@ -124,167 +238,164 @@ function extentSeen(p) {
 
 function parcelRow(p) {
   const isReferenceOnly = !p.oldSurveyNumber && !p.newSurveyNumber;
-  return `<tr class="${p.extentConsistent ? '' : 'unverified'}">
+  return `<tr class="${p.extentConsistent ? '' : 'has-problem'}">
     <td>${esc(p.oldSurveyNumber || '—')}</td>
-    <td>${esc(p.newSurveyNumber || (isReferenceOnly ? 'defined by reference to another schedule' : '—'))}</td>
+    <td>${esc(p.newSurveyNumber || (isReferenceOnly ? 'Defined by reference to another schedule' : '—'))}</td>
     <td>${esc(p.village || '—')}</td>
-    <td>${extentSeen(p)}</td>
-    <td>${p.extentConsistent ? badge('consistent', 'ok') : badge('differs', 'bad')}</td>
+    <td>${esc(extentSeen(p))}</td>
+    <td class="nowrap">${p.extentConsistent ? badge('Consistent', 'ok') : badge('Differs', 'danger')}</td>
   </tr>`;
 }
 
-function matterSection(matter) {
+function figure(label, value, hint, tone = '') {
+  return `<div class="figure${tone ? ` is-${tone}` : ''}"><div class="f-label">${esc(label)}</div><div class="f-value">${esc(value)}</div>${hint ? `<div class="f-hint">${esc(hint)}</div>` : ''}</div>`;
+}
+
+function matterSection(matter, idx) {
   const s = matter.summary;
+  const chain = matter.titleChain;
+  const items = attentionItems(matter, idx);
+  const id = (name) => `m${idx}-${name}`;
+  const nav = [
+    ['attention', 'Needs attention', `<span class="n${items.length ? '' : ' zero'}">${items.length}</span>`],
+    ['chain', 'Title chain'], ['parties', 'Parties'], ['survey', 'Survey & extent'],
+    ['encumbrances', 'Encumbrances'], ['documents', 'Documents'],
+  ];
   return `
-  <section class="matter">
+  <section class="matter" aria-labelledby="${id('title')}">
     <div class="matter-head">
-      <h2>${esc(matter.matterId)}</h2>
-      <span class="muted">${s.documentCount} document(s) · generated ${esc(new Date(matter.generatedAt).toLocaleString())}</span>
+      <h2 id="${id('title')}">${esc(matter.matterId)}</h2>
+      <span class="review-meta">${plural(s.documentCount, 'document')} · generated ${esc(new Date(matter.generatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))}</span>
     </div>
 
-    <div class="stats">
-      ${statTile('Documents', s.documentCount)}
-      ${statTile('Flagged', s.flaggedDocumentCount, s.flaggedDocumentCount ? 'warn' : 'ok')}
-      ${statTile('Chain span', `${matter.titleChain.earliestYear ?? '?'}–${matter.titleChain.latestYear ?? '?'}`)}
-      ${statTile('35-yr rule', matter.titleChain.meetsThirtyFiveYearRule ? 'Met' : 'Not met', matter.titleChain.meetsThirtyFiveYearRule ? 'ok' : 'bad')}
-      ${statTile('Unverified links', matter.titleChain.unverifiedLinks.length, matter.titleChain.unverifiedLinks.length ? 'warn' : 'ok')}
-      ${statTile('Survey conflicts', s.surveyConflictCount, s.surveyConflictCount ? 'bad' : 'ok')}
-      ${statTile('Encumbrances', matter.encumbrances.length)}
-      ${statTile('Possible dup. identities', s.possibleDuplicateIdentityCount, s.possibleDuplicateIdentityCount ? 'warn' : 'ok')}
-    </div>
+    <nav class="subnav" aria-label="${esc(matter.matterId)} sections">
+      ${nav.map(([key, label, extra = '']) => `<a href="#${id(key)}">${label}${extra}</a>`).join('')}
+    </nav>
 
-    <h3>Documents</h3>
-    <div class="doc-list">${matter.documents.map(documentCard).join('')}</div>
+    <section class="rsec" id="${id('attention')}">
+      <div class="figures">
+        ${figure('Title chain', `${chain.earliestYear ?? '?'}–${chain.latestYear ?? '?'}`, plural(chain.chain.length, 'transfer'))}
+        ${figure('35-year history', chain.meetsThirtyFiveYearRule ? 'Covered' : 'Not covered', null, chain.meetsThirtyFiveYearRule ? 'ok' : 'bad')}
+        ${figure('Items to verify', items.length, items.length ? 'listed below' : 'nothing flagged', items.length ? 'warn' : 'ok')}
+        ${figure('Encumbrances', matter.encumbrances.length, matter.encumbrances.length ? 'conditions and charges' : 'none found')}
+      </div>
+      <p class="figure-line">${[
+        plural(s.documentCount, 'document'),
+        plural(s.surveyConflictCount, 'survey conflict'),
+        `${plural(chain.unverifiedLinks.length, 'earlier deed')} not uploaded`,
+        plural(s.possibleDuplicateIdentityCount || 0, 'possible duplicate person', 'possible duplicate people'),
+      ].join(' · ')}</p>
+      <div class="attention">
+        <h3 class="section-title">Needs your attention <span class="count">${items.length}</span></h3>
+        ${attentionSection(items)}
+      </div>
+    </section>
 
-    <h3>Title chain <span class="muted">(earliest → latest)</span></h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Year</th><th>Type</th><th>Doc. No./Year</th><th>Executed by</th><th></th><th>Status</th></tr></thead>
-      <tbody>${matter.titleChain.chain.map(chainRow).join('')}</tbody>
-    </table></div>
+    <section class="rsec" id="${id('chain')}">
+      <h3 class="section-title">Title chain <span class="count">earliest to latest</span></h3>
+      <div class="table-wrap"><table class="data stack">
+        <thead><tr><th>Year</th><th>Document</th><th>Doc. no./year</th><th>Executed by</th><th>In favour of</th><th>Status</th></tr></thead>
+        <tbody>${chain.chain.map(chainRow).join('')}</tbody>
+      </table></div>
+    </section>
 
-    <h3>Parties</h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Name</th><th>Role(s)</th><th>PAN</th><th>Aadhaar</th><th>Mentions</th></tr></thead>
-      <tbody>${matter.identities.clusters.map(identityRow).join('')}</tbody>
-    </table></div>
+    <section class="rsec" id="${id('parties')}">
+      <h3 class="section-title">Parties <span class="count">${matter.identities.clusters.length}</span></h3>
+      <div class="table-wrap"><table class="data stack">
+        <thead><tr><th>Name</th><th>Role</th><th>PAN</th><th>Aadhaar</th><th class="num">Mentions</th></tr></thead>
+        <tbody>${matter.identities.clusters.map(identityRow).join('')}</tbody>
+      </table></div>
+    </section>
 
-    <h3>Survey &amp; extent</h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Old survey no.</th><th>New survey no.</th><th>Village</th><th>Extent seen</th><th>Status</th></tr></thead>
-      <tbody>${matter.surveyExtent.parcels.map(parcelRow).join('')}</tbody>
-    </table></div>
+    <section class="rsec" id="${id('survey')}">
+      <h3 class="section-title">Survey &amp; extent</h3>
+      <div class="table-wrap"><table class="data stack">
+        <thead><tr><th>Old survey no.</th><th>New survey no.</th><th>Village</th><th>Extent</th><th>Status</th></tr></thead>
+        <tbody>${matter.surveyExtent.parcels.map(parcelRow).join('')}</tbody>
+      </table></div>
+    </section>
 
-    <h3>Encumbrances</h3>
-    <ul class="plain">${matter.encumbrances.map((e) => `<li>${badge(e.type.replace(/_/g, ' '), 'type')} ${esc(e.description)} <span class="muted">— ${esc(e.sourceLabel)}</span></li>`).join('') || '<li class="muted">None found</li>'}</ul>
+    <section class="rsec" id="${id('encumbrances')}">
+      <h3 class="section-title">Encumbrances <span class="count">${matter.encumbrances.length}</span></h3>
+      ${matter.encumbrances.length ? `<div class="table-wrap"><table class="data stack">
+        <thead><tr><th>Type</th><th>Description</th><th>Source</th></tr></thead>
+        <tbody>${matter.encumbrances.map((e) => `<tr><td class="nowrap">${esc(sentenceCase(e.type))}</td><td>${esc(e.description)}</td><td>${esc(e.sourceLabel)}</td></tr>`).join('')}</tbody>
+      </table></div>` : '<p class="muted">None found.</p>'}
+    </section>
+
+    <section class="rsec" id="${id('documents')}">
+      <h3 class="section-title">Documents <span class="count">${matter.documents.length}</span></h3>
+      <div class="doc-list">${matter.documents.map((doc, i) => documentCard(doc, idx, i)).join('')}</div>
+    </section>
   </section>`;
 }
 
+const THEME_ICON = `<svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>`;
+
 function generateReviewHtml({ matters, unclassified }) {
-  return `<meta charset="utf-8">
-<title>Matter Review</title>
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matter review — Title Scrutiny</title>
+<script>try{if(localStorage.getItem('ts-theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-:root{
-  --bg:#F7F2E7; --bg-raised:#FFFDF7; --ink:#2A231C; --ink-soft:#6B6153;
-  --rule:#D8CBAE; --rule-strong:#B8A87F;
-  --seal:#8C2F2A; --seal-soft:#F1DAD2;
-  --gold:#8A6512; --gold-soft:#F0E4C4;
-  --store:#3F6E63; --store-soft:#DCEAE5;
-  --registrar:#2E4A6B; --registrar-soft:#DCE6ED;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#1D1811; --bg-raised:#262019; --ink:#ECE3CE; --ink-soft:#B4A88C;
-    --rule:#4A4030; --rule-strong:#5C4F35;
-    --seal:#D97D74; --seal-soft:#3A2320;
-    --gold:#D8B95B; --gold-soft:#332C16;
-    --store:#8FC3B4; --store-soft:#1B2E28;
-    --registrar:#8FB2D6; --registrar-soft:#1F2C3A;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#1D1811; --bg-raised:#262019; --ink:#ECE3CE; --ink-soft:#B4A88C;
-  --rule:#4A4030; --rule-strong:#5C4F35;
-  --seal:#D97D74; --seal-soft:#3A2320;
-  --gold:#D8B95B; --gold-soft:#332C16;
-  --store:#8FC3B4; --store-soft:#1B2E28;
-  --registrar:#8FB2D6; --registrar-soft:#1F2C3A;
-}
-*{box-sizing:border-box;}
-body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.55;}
-.page{max-width:1120px;margin:0 auto;padding:40px 24px 100px;}
-h1{font-family:'Fraunces','Source Serif 4',Georgia,serif;font-size:30px;margin:0 0 4px;}
-h2{font-family:'Fraunces','Source Serif 4',Georgia,serif;font-size:22px;margin:0;}
-h3{font-size:14px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin:28px 0 10px;border-bottom:1px solid var(--rule);padding-bottom:6px;}
-h4{font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin:14px 0 6px;}
-.muted{color:var(--ink-soft);font-size:13px;}
-.top{border-bottom:3px double var(--rule-strong);padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;}
-.top .sub{font-size:13px;color:var(--ink-soft);}
-
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:20px;}
-.stat{background:var(--bg-raised);border:1px solid var(--rule);border-radius:6px;padding:10px 12px;}
-.stat-value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;}
-.stat-label{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.04em;}
-.stat.ok .stat-value{color:var(--store);}
-.stat.warn .stat-value{color:var(--gold);}
-.stat.bad .stat-value{color:var(--seal);}
-
-.badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:10px;margin-right:4px;white-space:nowrap;}
-.badge.ok{background:var(--store-soft);color:var(--store);}
-.badge.warn{background:var(--gold-soft);color:var(--gold);}
-.badge.bad{background:var(--seal-soft);color:var(--seal);}
-.badge.type{background:var(--registrar-soft);color:var(--registrar);}
-
-.doc-list{display:flex;flex-direction:column;gap:8px;}
-.doc-card{background:var(--bg-raised);border:1px solid var(--rule);border-radius:6px;padding:0;}
-.doc-card.flagged{border-color:var(--gold);}
-.doc-card summary{cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;list-style:none;}
-.doc-card summary::-webkit-details-marker{display:none;}
-.doc-title{font-weight:600;margin-right:4px;}
-.doc-meta{margin-left:auto;font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
-.doc-body{padding:0 16px 16px;border-top:1px solid var(--rule);}
-.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-ul.plain{list-style:none;margin:0;padding:0;font-size:13.5px;}
-ul.plain li{padding:3px 0;border-bottom:1px dotted var(--rule);}
-ul.flag-list{margin:0 0 8px;padding-left:18px;font-size:13px;}
-ul.flag-list.bad li{color:var(--seal);}
-ul.flag-list.warn li{color:var(--gold);}
-ul.citations{list-style:none;margin:0;padding:0;font-size:12.5px;}
-ul.citations li{padding:3px 0;border-bottom:1px dotted var(--rule);}
-ul.citations code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--registrar);}
-.quote{color:var(--ink-soft);font-style:italic;}
-a.pagelink{color:var(--registrar);text-decoration:none;border-bottom:1px dotted currentColor;font-family:'IBM Plex Mono',monospace;font-size:11px;}
-table.flagged td{font-size:12.5px;vertical-align:top;}
-a.pagelink:hover{border-bottom-style:solid;}
-
-.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;}
-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-raised);}
-th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);padding:8px 10px;border-bottom:1.5px solid var(--rule-strong);white-space:nowrap;}
-td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top;}
-td.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
-tr.unverified{background:var(--gold-soft);}
-code{font-family:'IBM Plex Mono',monospace;}
-
-.matter{margin-bottom:56px;}
-.matter-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;border-bottom:1.5px solid var(--rule-strong);padding-bottom:8px;margin-bottom:16px;}
-
-.unclassified{background:var(--seal-soft);border:1px solid var(--seal);border-radius:6px;padding:14px 16px;margin-bottom:24px;}
-.unclassified h3{color:var(--seal);border:none;margin-top:0;}
+${asset('app.css')}
+${asset('review.css')}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">TS</span><span class="brand-name">Title Scrutiny</span></a>
+  <nav class="topnav" aria-label="Main">
+    <a href="/">New review</a>
+    <a href="/admin" class="hidden" data-admin-only>Users</a>
+  </nav>
+  <div class="topbar-end">
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Dark mode" aria-pressed="false">
+      ${THEME_ICON}
+    </button>
+    <span class="who hidden" data-signed-in>Signed in as <b data-me></b></span>
+    <button class="signout hidden" type="button" data-signed-in data-logout>Sign out</button>
+  </div>
+</div></header>
 
-<div class="page">
-  <div class="top">
+<main class="page review-main">
+  <div class="page-head page-head-row">
     <div>
-      <h1>Matter Review</h1>
-      <div class="sub">Reviewer workbench (read-only draft) — verify every flagged item against the source scan before a report is issued.</div>
+      <h1>Matter review</h1>
+      <p class="lede">Read-only draft. Check every item under “Needs your attention” against the source scan before the report is issued. Page references open the scan beside this page.</p>
     </div>
-    <div class="sub">${matters.length} matter(s) · generated ${esc(new Date().toLocaleString())}</div>
+    <div class="btn-row no-print">
+      <button class="btn" type="button" data-print>Print review</button>
+    </div>
   </div>
 
-  ${unclassified.length ? `<div class="unclassified"><h3>Unclassified documents (${unclassified.length})</h3><ul class="plain">${unclassified.map((u) => `<li>${esc(u.label)} — ${esc(u.classification?.reasoning || 'no matching type in the Schema Registry')}</li>`).join('')}</ul></div>` : ''}
+  ${unclassified.length ? `<div class="alert alert-warn"><b>${plural(unclassified.length, 'document')} not recognised</b> and left out of this review:<ul class="issue-list">${unclassified.map((u) => `<li>${esc(u.label)} — ${esc(u.classification?.reasoning || 'no matching document type')}</li>`).join('')}</ul></div>` : ''}
 
   ${matters.map(matterSection).join('')}
-</div>`;
+</main>
+
+<aside class="scan-panel" id="scanPanel" hidden aria-label="Source scan">
+  <div class="scan-head">
+    <span class="scan-title" id="scanTitle"></span>
+    <a class="btn btn-sm" id="scanNewTab" href="#" target="_blank" rel="noopener">Open in new tab</a>
+    <button class="icon-btn" type="button" id="scanClose" aria-label="Close scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="scan-body" id="scanBody"></div>
+</aside>
+
+<script>
+${asset('shell.js')}
+${asset('review.js')}
+</script>
+</body>
+</html>`;
 }
 
-module.exports = { generateReviewHtml };
+module.exports = { generateReviewHtml, attentionItems, fieldLabel };
